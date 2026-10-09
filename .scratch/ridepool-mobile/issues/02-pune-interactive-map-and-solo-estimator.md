@@ -5,10 +5,10 @@ An interactive map view powered by `flutter_map` (OpenStreetMap) centered on the
 
 **Blocked by:** 01: Flutter Shell Foundation, Uber Theme Tokens & Multi-Role Navigation
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] `flutter_map` interactive map widget embedded with free OpenStreetMap tile rendering centered on Pune coordinates.
-- [ ] Landmark selection chips with quick presets for key Pune transit hubs.
-- [ ] Solo route calculation displays estimated distance (km), travel duration (mins), and reference solo fare (₹).
-- [ ] Route polyline renders cleanly on the map with custom pickup (black circular dot) and drop-off (square stop pin) markers.
-- [ ] Tests verify accurate route distance formatting, solo fare formula calculations, and map state initialization.
+- [x] `flutter_map` interactive map widget embedded with free OpenStreetMap tile rendering centered on Pune coordinates.
+- [x] Landmark selection chips with quick presets for key Pune transit hubs.
+- [x] Solo route calculation displays estimated distance (km), travel duration (mins), and reference solo fare (₹).
+- [x] Route polyline renders cleanly on the map with custom pickup (black circular dot) and drop-off (square stop pin) markers.
+- [x] Tests verify accurate route distance formatting, solo fare formula calculations, and map state initialization.

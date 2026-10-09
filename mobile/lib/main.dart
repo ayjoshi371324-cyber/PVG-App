@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:ridepool_app/blocs/passenger/passenger_cubit.dart';
 import 'package:ridepool_app/blocs/role/role_cubit.dart';
 import 'package:ridepool_app/core/theme.dart';
 import 'package:ridepool_app/views/shell_view.dart';
@@ -13,8 +14,11 @@ class RidePoolApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => RoleCubit(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<RoleCubit>(create: (_) => RoleCubit()),
+        BlocProvider<PassengerCubit>(create: (_) => PassengerCubit()),
+      ],
       child: MaterialApp(
         title: 'RidePool AI',
         debugShowCheckedModeBanner: false,

@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:latlong2/latlong.dart';
 
 class PuneLocation extends Equatable {
   const PuneLocation({
@@ -12,6 +13,8 @@ class PuneLocation extends Equatable {
   final double latitude;
   final double longitude;
   final String? landmarkNote;
+
+  LatLng toLatLng() => LatLng(latitude, longitude);
 
   @override
   List<Object?> get props => [name, latitude, longitude, landmarkNote];
