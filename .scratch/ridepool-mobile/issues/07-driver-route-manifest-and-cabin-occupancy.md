@@ -5,10 +5,10 @@ The dedicated Driver mode interface. Drivers select or are assigned an active ve
 
 **Blocked by:** 02: Pune Interactive Map & Solo Route Estimator
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Driver view displays assigned vehicle details and current route status.
-- [ ] Turn-by-turn stop manifest presents ordered pickups and dropoffs with ETA and passenger details.
-- [ ] One-tap pill action buttons allow the driver to confirm "Passenger Picked Up" and "Passenger Dropped Off".
-- [ ] Interactive cabin occupancy gauge visually displays real-time filled vs. vacant seats.
-- [ ] Tests verify stop state transitions, boarding events, and cabin capacity math.
+- [x] Driver view displays assigned vehicle details and current route status.
+- [x] Turn-by-turn stop manifest presents ordered pickups and dropoffs with ETA and passenger details.
+- [x] One-tap pill action buttons allow the driver to confirm "Passenger Picked Up" and "Passenger Dropped Off".
+- [x] Interactive cabin occupancy gauge visually displays real-time filled vs. vacant seats.
+- [x] Tests verify stop state transitions, boarding events, and cabin capacity math.
