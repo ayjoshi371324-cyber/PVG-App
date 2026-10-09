@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:ridepool_app/blocs/driver/driver_cubit.dart';
+import 'package:ridepool_app/blocs/ops/ops_cubit.dart';
 import 'package:ridepool_app/blocs/passenger/passenger_cubit.dart';
 import 'package:ridepool_app/blocs/role/role_cubit.dart';
 import 'package:ridepool_app/core/theme.dart';
@@ -20,6 +21,7 @@ class RidePoolApp extends StatelessWidget {
         BlocProvider<RoleCubit>(create: (_) => RoleCubit()),
         BlocProvider<PassengerCubit>(create: (_) => PassengerCubit()),
         BlocProvider<DriverCubit>(create: (_) => DriverCubit()),
+        BlocProvider<OpsCubit>(create: (_) => OpsCubit()),
       ],
       child: MaterialApp(
         title: 'RidePool AI',
