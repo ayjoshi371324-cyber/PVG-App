@@ -4,10 +4,13 @@ import 'package:ridepool_app/blocs/passenger/passenger_cubit.dart';
 import 'package:ridepool_app/blocs/passenger/passenger_state.dart';
 import 'package:ridepool_app/core/route_estimator.dart';
 import 'package:ridepool_app/core/theme.dart';
+import 'package:ridepool_app/data/models/active_trip.dart';
 import 'package:ridepool_app/widgets/batch_waiting_card.dart';
 import 'package:ridepool_app/widgets/bottom_drawer_sheet.dart';
 import 'package:ridepool_app/widgets/landmark_chips.dart';
+import 'package:ridepool_app/widgets/live_trip_tracking_card.dart';
 import 'package:ridepool_app/widgets/metric_badge.dart';
+import 'package:ridepool_app/widgets/mid_trip_consent_sheet.dart';
 import 'package:ridepool_app/widgets/party_size_selector.dart';
 import 'package:ridepool_app/widgets/pill_button.dart';
 import 'package:ridepool_app/widgets/pooled_ride_offer_card.dart';
@@ -129,64 +132,51 @@ class _PassengerHomeContent extends StatelessWidget {
       );
     }
 
-    // 3. Active ride accepted (Ready for Ticket 05 live progression)
-    if (state.status == PassengerBookingStatus.tripActive) {
+    // 3. Active ride tracking & mid-trip join consent
+    if (state.status == PassengerBookingStatus.tripActive &&
+        state.activeTrip != null) {
+      final trip = state.activeTrip!;
+
+      // Modal/sheet prompt for mid-trip join proposal if one is pending
+      if (trip.pendingJoinRequest != null) {
+        return MidTripConsentSheet(
+          joinRequest: trip.pendingJoinRequest!,
+          onApprove: () {
+            context.read<PassengerCubit>().approveMidTripJoin();
+          },
+          onReject: () {
+            context.read<PassengerCubit>().rejectMidTripJoin();
+          },
+        );
+      }
+
       return BottomDrawerSheet(
-        title: 'Ride Confirmed & Dispatched',
+        title: 'Trip in Progress',
         subtitle:
-            '${state.activeOffer?.vehicleModel ?? "Vehicle"} (${state.activeOffer?.licensePlate ?? "MH-12"})',
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            UberCard(
-              variant: UberCardVariant.tinted,
-              padding: const EdgeInsets.all(UberSpacing.md),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: const BoxDecoration(
-                      color: UberColors.accentGreenSoft,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.check_circle_rounded,
-                      color: UberColors.accentGreen,
-                      size: 24,
-                    ),
+            '${trip.offer.vehicleModel} (${trip.offer.licensePlate}) • Pune Corridor',
+        child: LiveTripTrackingCard(
+          trip: trip,
+          onAdvanceStep: () {
+            context.read<PassengerCubit>().advanceTripStep();
+          },
+          onSimulateJoin: () {
+            context.read<PassengerCubit>().requestMidTripJoin(
+                  MidTripJoinRequest(
+                    requestId:
+                        'join-sim-${DateTime.now().millisecondsSinceEpoch}',
+                    passengerName: 'Vikram S.',
+                    pickupLocation: PuneLandmarks.shivajiNagar,
+                    dropoffLocation: PuneLandmarks.hinjawadiPhase1,
+                    previousDetourPercentage: trip.currentDetourPercentage,
+                    newDetourPercentage: 11.5,
+                    additionalSavings: 25.0,
+                    newSharedFare: 171.0,
                   ),
-                  const SizedBox(width: UberSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Driver ${state.activeOffer?.driverName ?? "assigned"} En Route',
-                          style: UberTypography.bodyMdStrong,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Arriving in ~${state.activeOffer?.pickupEtaMinutes ?? 4} mins at pickup point',
-                          style: UberTypography.caption,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: UberSpacing.md),
-            PillButton(
-              key: const Key('trip_active_cancel_button'),
-              label: 'Cancel Active Trip',
-              variant: PillButtonVariant.secondary,
-              fullWidth: true,
-              onPressed: () {
-                context.read<PassengerCubit>().declineOffer();
-              },
-            ),
-          ],
+                );
+          },
+          onCancel: () {
+            context.read<PassengerCubit>().declineOffer();
+          },
         ),
       );
     }
@@ -355,17 +345,19 @@ class _PassengerHomeContent extends StatelessWidget {
     return BlocBuilder<PassengerCubit, PassengerState>(
       builder: (context, state) {
         final estimate = state.estimate;
+        final activeTrip = state.activeTrip;
 
         return Scaffold(
           backgroundColor: UberColors.canvas,
           body: Stack(
             children: [
-              // Interactive OpenStreetMap view with route polyline and markers
+              // Interactive OpenStreetMap view with route polyline, stops, and moving vehicle
               Positioned.fill(
                 child: PuneMapWidget(
                   pickup: state.pickup,
                   dropoff: state.dropoff,
                   polylinePoints: estimate?.polylinePoints ?? const [],
+                  vehiclePosition: activeTrip?.vehiclePosition,
                 ),
               ),
 
@@ -379,15 +371,17 @@ class _PassengerHomeContent extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   spacing: UberSpacing.sm,
                   runSpacing: UberSpacing.xs,
-                  children: const [
+                  children: [
                     MetricBadge(
-                      label: 'Detour Ceiling',
-                      value: '≤ 15%',
+                      label: activeTrip != null ? 'Active Detour' : 'Detour Ceiling',
+                      value: activeTrip != null
+                          ? '+${activeTrip.currentDetourPercentage.toStringAsFixed(1)}%'
+                          : '≤ 15%',
                       icon: Icons.verified_user_outlined,
                       variant: MetricBadgeVariant.success,
                       compact: true,
                     ),
-                    MetricBadge(
+                    const MetricBadge(
                       label: 'Pricing',
                       value: 'Shapley Split',
                       icon: Icons.savings_outlined,

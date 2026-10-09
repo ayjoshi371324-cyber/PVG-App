@@ -5,10 +5,10 @@ Following offer acceptance, transition the passenger into live trip tracking. Di
 
 **Blocked by:** 04: Fair-Fare Offer Card with Shapley Breakdown & Detour Guarantee
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Live map displays the dispatched vehicle moving along the assigned multi-stop route.
-- [ ] Visual progress indicator shows upcoming passenger pickup and dropoff milestones.
-- [ ] Mid-trip join event displays a notification sheet detailing the newly added rider and re-verifying the <= 15% detour guarantee.
-- [ ] Two-way consent dialog allows riders to approve the route adjustment.
-- [ ] Tests verify event handling for vehicle movement, waypoint completion, and mid-trip join consent dialogs.
+- [x] Live map displays the dispatched vehicle moving along the assigned multi-stop route.
+- [x] Visual progress indicator shows upcoming passenger pickup and dropoff milestones.
+- [x] Mid-trip join event displays a notification sheet detailing the newly added rider and re-verifying the <= 15% detour guarantee.
+- [x] Two-way consent dialog allows riders to approve the route adjustment.
+- [x] Tests verify event handling for vehicle movement, waypoint completion, and mid-trip join consent dialogs.

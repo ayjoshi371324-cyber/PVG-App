@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:ridepool_app/core/route_estimator.dart';
+import 'package:ridepool_app/data/models/active_trip.dart';
 import 'package:ridepool_app/data/models/pooled_ride_offer.dart';
 import 'package:ridepool_app/data/models/pune_location.dart';
 
@@ -21,6 +22,7 @@ class PassengerState extends Equatable {
     this.totalCountdownSeconds = 15,
     this.activeOffer,
     this.offerExpirySeconds = 20,
+    this.activeTrip,
   });
 
   final PuneLocation? pickup;
@@ -32,6 +34,7 @@ class PassengerState extends Equatable {
   final int totalCountdownSeconds;
   final PooledRideOffer? activeOffer;
   final int offerExpirySeconds;
+  final ActiveTrip? activeTrip;
 
   PassengerState copyWith({
     PuneLocation? pickup,
@@ -44,6 +47,8 @@ class PassengerState extends Equatable {
     PooledRideOffer? activeOffer,
     bool clearActiveOffer = false,
     int? offerExpirySeconds,
+    ActiveTrip? activeTrip,
+    bool clearActiveTrip = false,
   }) {
     return PassengerState(
       pickup: pickup ?? this.pickup,
@@ -56,6 +61,7 @@ class PassengerState extends Equatable {
           totalCountdownSeconds ?? this.totalCountdownSeconds,
       activeOffer: clearActiveOffer ? null : (activeOffer ?? this.activeOffer),
       offerExpirySeconds: offerExpirySeconds ?? this.offerExpirySeconds,
+      activeTrip: clearActiveTrip ? null : (activeTrip ?? this.activeTrip),
     );
   }
 
@@ -70,5 +76,6 @@ class PassengerState extends Equatable {
         totalCountdownSeconds,
         activeOffer,
         offerExpirySeconds,
+        activeTrip,
       ];
 }

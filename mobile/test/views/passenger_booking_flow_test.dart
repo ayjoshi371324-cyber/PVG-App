@@ -9,9 +9,12 @@ import 'package:ridepool_app/data/models/pooled_ride_offer.dart';
 import 'package:ridepool_app/views/passenger/passenger_home_view.dart';
 import 'package:ridepool_app/widgets/batch_waiting_card.dart';
 import 'package:ridepool_app/widgets/detour_guarantee_badge.dart';
+import 'package:ridepool_app/widgets/live_trip_tracking_card.dart';
+import 'package:ridepool_app/widgets/mid_trip_consent_sheet.dart';
 import 'package:ridepool_app/widgets/party_size_selector.dart';
 import 'package:ridepool_app/widgets/pooled_ride_offer_card.dart';
 import 'package:ridepool_app/widgets/shapley_fare_breakdown_card.dart';
+import 'package:ridepool_app/widgets/trip_progression_bar.dart';
 
 void main() {
   group('Passenger Booking Flow Integration', () {
@@ -115,11 +118,40 @@ void main() {
       await tester.tap(acceptFinder);
       await tester.pumpAndSettle();
 
-      // Verify transitioned to trip active state
+      // Verify transitioned to trip active state with LiveTripTrackingCard
       expect(passengerCubit.state.status,
           equals(PassengerBookingStatus.tripActive));
-      expect(find.text('Ride Confirmed & Dispatched'), findsOneWidget);
-      expect(find.textContaining('Driver Suresh K. En Route'), findsOneWidget);
+      expect(find.byType(LiveTripTrackingCard), findsOneWidget);
+      expect(find.byType(TripProgressionBar), findsOneWidget);
+      expect(find.byKey(const Key('vehicle_marker_icon')), findsOneWidget);
+
+      // Advance trip step
+      await tester.tap(find.byKey(const Key('advance_trip_step_button')));
+      await tester.pumpAndSettle();
+      expect(passengerCubit.state.activeTrip!.currentWaypointIndex, equals(1));
+
+      // Trigger mid-trip join modal
+      await tester.tap(find.byKey(const Key('simulate_mid_trip_join_button')));
+      await tester.pumpAndSettle();
+
+      // Verify MidTripConsentSheet is displayed
+      expect(find.byType(MidTripConsentSheet), findsOneWidget);
+      expect(find.text('Mid-Trip Join Request'), findsOneWidget);
+      expect(find.textContaining('Vikram S.'), findsOneWidget);
+      expect(find.text('≤ 15% Guaranteed'), findsOneWidget);
+
+      // Approve Mid-Trip Join
+      await tester.tap(find.byKey(const Key('approve_mid_trip_join_button')));
+      await tester.pumpAndSettle();
+
+      // Verify route updated with new rider
+      expect(find.byType(MidTripConsentSheet), findsNothing);
+      expect(find.byType(LiveTripTrackingCard), findsOneWidget);
+      expect(
+        passengerCubit.state.activeTrip!.waypoints
+            .any((w) => w.passengerName == 'Vikram S.'),
+        isTrue,
+      );
     });
 
     testWidgets(

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:ridepool_app/blocs/passenger/passenger_state.dart';
 import 'package:ridepool_app/core/route_estimator.dart';
+import 'package:ridepool_app/data/models/active_trip.dart';
 import 'package:ridepool_app/data/models/pooled_ride_offer.dart';
 import 'package:ridepool_app/data/models/pune_location.dart';
 
@@ -104,6 +105,7 @@ class PassengerCubit extends Cubit<PassengerState> {
       countdownSeconds: durationSeconds,
       totalCountdownSeconds: durationSeconds,
       clearActiveOffer: true,
+      clearActiveTrip: true,
     ));
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -127,6 +129,7 @@ class PassengerCubit extends Cubit<PassengerState> {
       status: PassengerBookingStatus.planning,
       countdownSeconds: 15,
       clearActiveOffer: true,
+      clearActiveTrip: true,
     ));
   }
 
@@ -146,6 +149,7 @@ class PassengerCubit extends Cubit<PassengerState> {
       activeOffer: offer,
       countdownSeconds: 0,
       offerExpirySeconds: offer.offerExpirySeconds,
+      clearActiveTrip: true,
     ));
 
     _offerExpiryTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -159,6 +163,7 @@ class PassengerCubit extends Cubit<PassengerState> {
         emit(state.copyWith(
           status: PassengerBookingStatus.planning,
           clearActiveOffer: true,
+          clearActiveTrip: true,
           offerExpirySeconds: 20,
         ));
       }
@@ -177,8 +182,10 @@ class PassengerCubit extends Cubit<PassengerState> {
     }
 
     _offerExpiryTimer?.cancel();
+    final activeTrip = ActiveTrip.fromOffer(offer: currentOffer);
     emit(state.copyWith(
       status: PassengerBookingStatus.tripActive,
+      activeTrip: activeTrip,
     ));
   }
 
@@ -187,7 +194,49 @@ class PassengerCubit extends Cubit<PassengerState> {
     emit(state.copyWith(
       status: PassengerBookingStatus.planning,
       clearActiveOffer: true,
+      clearActiveTrip: true,
       offerExpirySeconds: 20,
+    ));
+  }
+
+  void advanceTripStep() {
+    final trip = state.activeTrip;
+    if (trip == null) return;
+    emit(state.copyWith(
+      activeTrip: trip.advanceWaypoint(),
+    ));
+  }
+
+  void requestMidTripJoin(MidTripJoinRequest joinRequest) {
+    if (joinRequest.newDetourPercentage > kMaxDetourGuaranteePercentage) {
+      throw DetourGuaranteeViolationException(
+        detourPercentage: joinRequest.newDetourPercentage,
+        maxAllowedDetour: kMaxDetourGuaranteePercentage,
+      );
+    }
+    final trip = state.activeTrip;
+    if (trip == null) return;
+    emit(state.copyWith(
+      activeTrip: trip.copyWith(pendingJoinRequest: joinRequest),
+    ));
+  }
+
+  void approveMidTripJoin() {
+    final trip = state.activeTrip;
+    final joinReq = trip?.pendingJoinRequest;
+    if (trip == null || joinReq == null) return;
+
+    emit(state.copyWith(
+      activeTrip: trip.applyMidTripJoin(joinReq),
+    ));
+  }
+
+  void rejectMidTripJoin() {
+    final trip = state.activeTrip;
+    if (trip == null) return;
+
+    emit(state.copyWith(
+      activeTrip: trip.copyWith(clearPendingJoinRequest: true),
     ));
   }
 

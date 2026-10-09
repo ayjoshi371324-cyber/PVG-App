@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ridepool_app/blocs/passenger/passenger_cubit.dart';
 import 'package:ridepool_app/blocs/passenger/passenger_state.dart';
 import 'package:ridepool_app/core/route_estimator.dart';
+import 'package:ridepool_app/data/models/active_trip.dart';
 import 'package:ridepool_app/data/models/pooled_ride_offer.dart';
 
 void main() {
@@ -248,6 +249,197 @@ void main() {
 
       expect(cubit.state.status, equals(PassengerBookingStatus.planning));
       expect(cubit.state.activeOffer, isNull);
+    });
+
+    test('acceptOffer creates activeTrip with waypoints and vehicle position', () {
+      final validOffer = PooledRideOffer(
+        offerId: 'offer-105',
+        vehicleModel: 'Tata Tigor EV',
+        licensePlate: 'MH-12-RN-4821',
+        driverName: 'Suresh K.',
+        driverRating: 4.9,
+        pickup: PuneLandmarks.kothrud,
+        dropoff: PuneLandmarks.hinjawadiPhase1,
+        pickupEtaMinutes: 4,
+        dropoffEtaMinutes: 26,
+        coPassengersCount: 2,
+        detourPercentage: 8.0,
+        fareBreakdown: ShapleyFareBreakdown(
+          soloFare: 280.0,
+          sharedFare: 195.0,
+          coalitionSize: 3,
+        ),
+      );
+
+      cubit.receiveOffer(validOffer);
+      cubit.acceptOffer();
+
+      expect(cubit.state.status, equals(PassengerBookingStatus.tripActive));
+      expect(cubit.state.activeTrip, isNotNull);
+      expect(cubit.state.activeTrip!.waypoints.length, greaterThanOrEqualTo(2));
+      expect(cubit.state.activeTrip!.currentWaypointIndex, equals(0));
+    });
+
+    test('advanceTripStep advances waypoints and updates vehicle location', () {
+      final validOffer = PooledRideOffer(
+        offerId: 'offer-106',
+        vehicleModel: 'Tata Tigor EV',
+        licensePlate: 'MH-12-RN-4821',
+        driverName: 'Suresh K.',
+        driverRating: 4.9,
+        pickup: PuneLandmarks.kothrud,
+        dropoff: PuneLandmarks.hinjawadiPhase1,
+        pickupEtaMinutes: 4,
+        dropoffEtaMinutes: 26,
+        coPassengersCount: 2,
+        detourPercentage: 8.0,
+        fareBreakdown: ShapleyFareBreakdown(
+          soloFare: 280.0,
+          sharedFare: 195.0,
+          coalitionSize: 3,
+        ),
+      );
+
+      cubit.receiveOffer(validOffer);
+      cubit.acceptOffer();
+
+      final initialPos = cubit.state.activeTrip!.vehiclePosition;
+      cubit.advanceTripStep();
+
+      expect(cubit.state.activeTrip!.currentWaypointIndex, equals(1));
+      expect(cubit.state.activeTrip!.waypoints[0].status,
+          equals(WaypointStatus.completed));
+      expect(cubit.state.activeTrip!.vehiclePosition, isNot(equals(initialPos)));
+    });
+
+    test('requestMidTripJoin sets pendingJoinRequest if detour <= 15%', () {
+      final validOffer = PooledRideOffer(
+        offerId: 'offer-107',
+        vehicleModel: 'Tata Tigor EV',
+        licensePlate: 'MH-12-RN-4821',
+        driverName: 'Suresh K.',
+        driverRating: 4.9,
+        pickup: PuneLandmarks.kothrud,
+        dropoff: PuneLandmarks.hinjawadiPhase1,
+        pickupEtaMinutes: 4,
+        dropoffEtaMinutes: 26,
+        coPassengersCount: 2,
+        detourPercentage: 8.0,
+        fareBreakdown: ShapleyFareBreakdown(
+          soloFare: 280.0,
+          sharedFare: 195.0,
+          coalitionSize: 3,
+        ),
+      );
+
+      cubit.receiveOffer(validOffer);
+      cubit.acceptOffer();
+
+      final joinReq = MidTripJoinRequest(
+        requestId: 'join-v1',
+        passengerName: 'Vikram S.',
+        pickupLocation: PuneLandmarks.shivajiNagar,
+        dropoffLocation: PuneLandmarks.hinjawadiPhase1,
+        previousDetourPercentage: 8.0,
+        newDetourPercentage: 11.5,
+        additionalSavings: 25.0,
+        newSharedFare: 170.0,
+      );
+
+      cubit.requestMidTripJoin(joinReq);
+
+      expect(cubit.state.activeTrip!.pendingJoinRequest, equals(joinReq));
+    });
+
+    test('approveMidTripJoin inserts waypoint and updates detour guarantee', () {
+      final validOffer = PooledRideOffer(
+        offerId: 'offer-108',
+        vehicleModel: 'Tata Tigor EV',
+        licensePlate: 'MH-12-RN-4821',
+        driverName: 'Suresh K.',
+        driverRating: 4.9,
+        pickup: PuneLandmarks.kothrud,
+        dropoff: PuneLandmarks.hinjawadiPhase1,
+        pickupEtaMinutes: 4,
+        dropoffEtaMinutes: 26,
+        coPassengersCount: 2,
+        detourPercentage: 8.0,
+        fareBreakdown: ShapleyFareBreakdown(
+          soloFare: 280.0,
+          sharedFare: 195.0,
+          coalitionSize: 3,
+        ),
+      );
+
+      cubit.receiveOffer(validOffer);
+      cubit.acceptOffer();
+
+      final joinReq = MidTripJoinRequest(
+        requestId: 'join-v2',
+        passengerName: 'Vikram S.',
+        pickupLocation: PuneLandmarks.shivajiNagar,
+        dropoffLocation: PuneLandmarks.hinjawadiPhase1,
+        previousDetourPercentage: 8.0,
+        newDetourPercentage: 11.5,
+        additionalSavings: 25.0,
+        newSharedFare: 170.0,
+      );
+
+      cubit.requestMidTripJoin(joinReq);
+      cubit.approveMidTripJoin();
+
+      expect(cubit.state.activeTrip!.pendingJoinRequest, isNull);
+      expect(cubit.state.activeTrip!.currentDetourPercentage, equals(11.5));
+      expect(
+        cubit.state.activeTrip!.waypoints
+            .any((w) => w.passengerName == 'Vikram S.'),
+        isTrue,
+      );
+    });
+
+    test('rejectMidTripJoin dismisses request without altering route', () {
+      final validOffer = PooledRideOffer(
+        offerId: 'offer-109',
+        vehicleModel: 'Tata Tigor EV',
+        licensePlate: 'MH-12-RN-4821',
+        driverName: 'Suresh K.',
+        driverRating: 4.9,
+        pickup: PuneLandmarks.kothrud,
+        dropoff: PuneLandmarks.hinjawadiPhase1,
+        pickupEtaMinutes: 4,
+        dropoffEtaMinutes: 26,
+        coPassengersCount: 2,
+        detourPercentage: 8.0,
+        fareBreakdown: ShapleyFareBreakdown(
+          soloFare: 280.0,
+          sharedFare: 195.0,
+          coalitionSize: 3,
+        ),
+      );
+
+      cubit.receiveOffer(validOffer);
+      cubit.acceptOffer();
+
+      final initialWaypointCount = cubit.state.activeTrip!.waypoints.length;
+
+      final joinReq = MidTripJoinRequest(
+        requestId: 'join-v3',
+        passengerName: 'Vikram S.',
+        pickupLocation: PuneLandmarks.shivajiNagar,
+        dropoffLocation: PuneLandmarks.hinjawadiPhase1,
+        previousDetourPercentage: 8.0,
+        newDetourPercentage: 11.5,
+        additionalSavings: 25.0,
+        newSharedFare: 170.0,
+      );
+
+      cubit.requestMidTripJoin(joinReq);
+      cubit.rejectMidTripJoin();
+
+      expect(cubit.state.activeTrip!.pendingJoinRequest, isNull);
+      expect(cubit.state.activeTrip!.waypoints.length,
+          equals(initialWaypointCount));
+      expect(cubit.state.activeTrip!.currentDetourPercentage, equals(8.0));
     });
   });
 }

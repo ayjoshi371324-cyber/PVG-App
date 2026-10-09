@@ -10,12 +10,14 @@ class PuneMapWidget extends StatefulWidget {
     this.pickup,
     this.dropoff,
     this.polylinePoints = const [],
+    this.vehiclePosition,
     this.onMapTap,
   });
 
   final PuneLocation? pickup;
   final PuneLocation? dropoff;
   final List<LatLng> polylinePoints;
+  final LatLng? vehiclePosition;
   final void Function(LatLng point)? onMapTap;
 
   static const LatLng defaultPuneCenter = LatLng(18.5204, 73.8567);
@@ -103,6 +105,40 @@ class _PuneMapWidgetState extends State<PuneMapWidget> {
                   height: 6,
                   color: UberColors.onPrimary,
                 ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (widget.vehiclePosition != null) {
+      markers.add(
+        Marker(
+          point: widget.vehiclePosition!,
+          width: 38,
+          height: 38,
+          child: Center(
+            child: Container(
+              key: const Key('vehicle_marker_icon'),
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: UberColors.ink,
+                shape: BoxShape.circle,
+                border: Border.all(color: UberColors.canvas, width: 2.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.navigation_rounded,
+                color: UberColors.onPrimary,
+                size: 20,
               ),
             ),
           ),
