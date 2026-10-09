@@ -5,10 +5,10 @@ When batch optimization yields an assignment, present the passenger with an elev
 
 **Blocked by:** 03: Dynamic Batch Intake Queue & Waiting Countdown
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Elevated bottom sheet renders the matched pooled ride offer.
-- [ ] Detour guarantee pill badge highlights the exact detour percentage and certifies that detour is <= 15.0%.
-- [ ] Shapley fair-fare comparison breakdown displays solo baseline fare, shared pooled fare, and calculated savings (₹ and %).
-- [ ] Accept and Decline pill action buttons with a countdown timer for offer decision expiry.
-- [ ] Unit and widget tests verify that detour percentages exceeding 15% are rejected and fare savings calculations are mathematically accurate.
+- [x] Elevated bottom sheet renders the matched pooled ride offer.
+- [x] Detour guarantee pill badge highlights the exact detour percentage and certifies that detour is <= 15.0%.
+- [x] Shapley fair-fare breakdown comparison displays solo baseline fare, shared pooled fare, and calculated savings (₹ and %).
+- [x] Accept and Decline pill action buttons with a countdown timer for offer decision expiry.
+- [x] Unit and widget tests verify that detour percentages exceeding 15% are rejected and fare savings calculations are mathematically accurate.

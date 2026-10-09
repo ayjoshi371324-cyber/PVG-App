@@ -1,11 +1,13 @@
 import 'package:equatable/equatable.dart';
 import 'package:ridepool_app/core/route_estimator.dart';
+import 'package:ridepool_app/data/models/pooled_ride_offer.dart';
 import 'package:ridepool_app/data/models/pune_location.dart';
 
 enum PassengerBookingStatus {
   planning,
   batchWaiting,
   offerReceived,
+  tripActive,
 }
 
 class PassengerState extends Equatable {
@@ -17,6 +19,8 @@ class PassengerState extends Equatable {
     this.status = PassengerBookingStatus.planning,
     this.countdownSeconds = 15,
     this.totalCountdownSeconds = 15,
+    this.activeOffer,
+    this.offerExpirySeconds = 20,
   });
 
   final PuneLocation? pickup;
@@ -26,6 +30,8 @@ class PassengerState extends Equatable {
   final PassengerBookingStatus status;
   final int countdownSeconds;
   final int totalCountdownSeconds;
+  final PooledRideOffer? activeOffer;
+  final int offerExpirySeconds;
 
   PassengerState copyWith({
     PuneLocation? pickup,
@@ -35,6 +41,9 @@ class PassengerState extends Equatable {
     PassengerBookingStatus? status,
     int? countdownSeconds,
     int? totalCountdownSeconds,
+    PooledRideOffer? activeOffer,
+    bool clearActiveOffer = false,
+    int? offerExpirySeconds,
   }) {
     return PassengerState(
       pickup: pickup ?? this.pickup,
@@ -43,7 +52,10 @@ class PassengerState extends Equatable {
       partySize: partySize ?? this.partySize,
       status: status ?? this.status,
       countdownSeconds: countdownSeconds ?? this.countdownSeconds,
-      totalCountdownSeconds: totalCountdownSeconds ?? this.totalCountdownSeconds,
+      totalCountdownSeconds:
+          totalCountdownSeconds ?? this.totalCountdownSeconds,
+      activeOffer: clearActiveOffer ? null : (activeOffer ?? this.activeOffer),
+      offerExpirySeconds: offerExpirySeconds ?? this.offerExpirySeconds,
     );
   }
 
@@ -56,5 +68,7 @@ class PassengerState extends Equatable {
         status,
         countdownSeconds,
         totalCountdownSeconds,
+        activeOffer,
+        offerExpirySeconds,
       ];
 }

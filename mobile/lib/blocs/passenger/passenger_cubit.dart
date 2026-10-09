@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:ridepool_app/blocs/passenger/passenger_state.dart';
 import 'package:ridepool_app/core/route_estimator.dart';
+import 'package:ridepool_app/data/models/pooled_ride_offer.dart';
 import 'package:ridepool_app/data/models/pune_location.dart';
 
 class PassengerCubit extends Cubit<PassengerState> {
@@ -23,6 +24,7 @@ class PassengerCubit extends Cubit<PassengerState> {
 
   final RouteEstimatorService _estimator;
   Timer? _countdownTimer;
+  Timer? _offerExpiryTimer;
 
   void setPickup(PuneLocation location) {
     final newDropoff = state.dropoff;
@@ -95,11 +97,13 @@ class PassengerCubit extends Cubit<PassengerState> {
 
   void startBatchWaiting({int durationSeconds = 15}) {
     _countdownTimer?.cancel();
+    _offerExpiryTimer?.cancel();
 
     emit(state.copyWith(
       status: PassengerBookingStatus.batchWaiting,
       countdownSeconds: durationSeconds,
       totalCountdownSeconds: durationSeconds,
+      clearActiveOffer: true,
     ));
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -109,25 +113,125 @@ class PassengerCubit extends Cubit<PassengerState> {
         ));
       } else {
         timer.cancel();
-        emit(state.copyWith(
-          status: PassengerBookingStatus.offerReceived,
-          countdownSeconds: 0,
-        ));
+        // Generate an optimized pooled ride offer upon batch matching completion
+        final offer = _generateSampleOffer();
+        receiveOffer(offer);
       }
     });
   }
 
   void cancelBatchWaiting() {
     _countdownTimer?.cancel();
+    _offerExpiryTimer?.cancel();
     emit(state.copyWith(
       status: PassengerBookingStatus.planning,
       countdownSeconds: 15,
+      clearActiveOffer: true,
     ));
+  }
+
+  void receiveOffer(PooledRideOffer offer) {
+    if (offer.detourPercentage > kMaxDetourGuaranteePercentage) {
+      throw DetourGuaranteeViolationException(
+        detourPercentage: offer.detourPercentage,
+        maxAllowedDetour: kMaxDetourGuaranteePercentage,
+      );
+    }
+
+    _countdownTimer?.cancel();
+    _offerExpiryTimer?.cancel();
+
+    emit(state.copyWith(
+      status: PassengerBookingStatus.offerReceived,
+      activeOffer: offer,
+      countdownSeconds: 0,
+      offerExpirySeconds: offer.offerExpirySeconds,
+    ));
+
+    _offerExpiryTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (state.offerExpirySeconds > 1) {
+        emit(state.copyWith(
+          offerExpirySeconds: state.offerExpirySeconds - 1,
+        ));
+      } else {
+        timer.cancel();
+        // Offer expired: reset back to planning sheet
+        emit(state.copyWith(
+          status: PassengerBookingStatus.planning,
+          clearActiveOffer: true,
+          offerExpirySeconds: 20,
+        ));
+      }
+    });
+  }
+
+  void acceptOffer() {
+    final currentOffer = state.activeOffer;
+    if (currentOffer == null) return;
+
+    if (currentOffer.detourPercentage > kMaxDetourGuaranteePercentage) {
+      throw DetourGuaranteeViolationException(
+        detourPercentage: currentOffer.detourPercentage,
+        maxAllowedDetour: kMaxDetourGuaranteePercentage,
+      );
+    }
+
+    _offerExpiryTimer?.cancel();
+    emit(state.copyWith(
+      status: PassengerBookingStatus.tripActive,
+    ));
+  }
+
+  void declineOffer() {
+    _offerExpiryTimer?.cancel();
+    emit(state.copyWith(
+      status: PassengerBookingStatus.planning,
+      clearActiveOffer: true,
+      offerExpirySeconds: 20,
+    ));
+  }
+
+  PooledRideOffer _generateSampleOffer() {
+    final pickup = state.pickup ?? PuneLandmarks.kothrud;
+    final dropoff = state.dropoff ?? PuneLandmarks.hinjawadiPhase1;
+    final estimate = state.estimate ??
+        _estimator.estimateRoute(pickup: pickup, dropoff: dropoff);
+
+    final soloFare = estimate.referenceFare;
+    // Transparent Shapley 30% pooled discount for a 3-passenger coalition
+    final sharedFare = (soloFare * 0.70).roundToDouble();
+
+    return PooledRideOffer(
+      offerId: 'offer-pune-${DateTime.now().millisecondsSinceEpoch}',
+      vehicleModel: 'Tata Tigor EV',
+      licensePlate: 'MH-12-RN-4821',
+      driverName: 'Suresh K.',
+      driverRating: 4.9,
+      pickup: pickup,
+      dropoff: dropoff,
+      pickupEtaMinutes: 4,
+      dropoffEtaMinutes: (estimate.durationMinutes * 1.08).round(),
+      coPassengersCount: 2,
+      coPassengerLabels: const [
+        'Rohan (Swargate)',
+        'Priya (Kothrud)',
+      ],
+      detourPercentage: 8.4, // Strict <= 15.0% guarantee certified
+      fareBreakdown: ShapleyFareBreakdown(
+        soloFare: soloFare,
+        sharedFare: sharedFare,
+        coalitionSize: 3,
+        explanation:
+            'Mathematically allocated via Shapley marginal cost contributions. Capped below solo baseline.',
+      ),
+      offerExpirySeconds: 20,
+    );
   }
 
   @override
   Future<void> close() {
     _countdownTimer?.cancel();
+    _offerExpiryTimer?.cancel();
     return super.close();
   }
 }

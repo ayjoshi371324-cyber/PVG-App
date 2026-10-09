@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ridepool_app/blocs/passenger/passenger_cubit.dart';
 import 'package:ridepool_app/blocs/passenger/passenger_state.dart';
 import 'package:ridepool_app/core/route_estimator.dart';
+import 'package:ridepool_app/data/models/pooled_ride_offer.dart';
 
 void main() {
   group('PassengerCubit', () {
@@ -105,6 +106,148 @@ void main() {
       cubit.cancelBatchWaiting();
       expect(cubit.state.status, equals(PassengerBookingStatus.planning));
       expect(cubit.state.countdownSeconds, equals(15));
+    });
+
+    test('receiveOffer populates activeOffer and starts offer expiry countdown', () async {
+      final validOffer = PooledRideOffer(
+        offerId: 'offer-101',
+        vehicleModel: 'Tata Tigor EV',
+        licensePlate: 'MH-12-RN-4821',
+        driverName: 'Suresh K.',
+        driverRating: 4.9,
+        pickup: PuneLandmarks.kothrud,
+        dropoff: PuneLandmarks.hinjawadiPhase1,
+        pickupEtaMinutes: 4,
+        dropoffEtaMinutes: 26,
+        coPassengersCount: 2,
+        detourPercentage: 9.2,
+        fareBreakdown: ShapleyFareBreakdown(
+          soloFare: 280.0,
+          sharedFare: 196.0,
+          coalitionSize: 3,
+        ),
+        offerExpirySeconds: 3,
+      );
+
+      cubit.receiveOffer(validOffer);
+
+      expect(cubit.state.status, equals(PassengerBookingStatus.offerReceived));
+      expect(cubit.state.activeOffer, equals(validOffer));
+      expect(cubit.state.offerExpirySeconds, equals(3));
+
+      // Wait 1.1s for tick
+      await Future.delayed(const Duration(milliseconds: 1100));
+      expect(cubit.state.offerExpirySeconds, equals(2));
+    });
+
+    test('receiveOffer throws DetourGuaranteeViolationException if detour exceeds 15.0%', () {
+      expect(
+        () => cubit.receiveOffer(
+          PooledRideOffer(
+            offerId: 'offer-invalid',
+            vehicleModel: 'Tata Tigor EV',
+            licensePlate: 'MH-12-RN-4821',
+            driverName: 'Suresh K.',
+            driverRating: 4.9,
+            pickup: PuneLandmarks.kothrud,
+            dropoff: PuneLandmarks.hinjawadiPhase1,
+            pickupEtaMinutes: 4,
+            dropoffEtaMinutes: 35,
+            coPassengersCount: 2,
+            detourPercentage: 18.0,
+            fareBreakdown: ShapleyFareBreakdown(
+              soloFare: 280.0,
+              sharedFare: 196.0,
+              coalitionSize: 3,
+            ),
+          ),
+        ),
+        throwsA(isA<DetourGuaranteeViolationException>()),
+      );
+    });
+
+    test('acceptOffer transitions to tripActive and cancels expiry timer', () {
+      final validOffer = PooledRideOffer(
+        offerId: 'offer-102',
+        vehicleModel: 'Tata Tigor EV',
+        licensePlate: 'MH-12-RN-4821',
+        driverName: 'Suresh K.',
+        driverRating: 4.9,
+        pickup: PuneLandmarks.kothrud,
+        dropoff: PuneLandmarks.hinjawadiPhase1,
+        pickupEtaMinutes: 4,
+        dropoffEtaMinutes: 26,
+        coPassengersCount: 2,
+        detourPercentage: 8.0,
+        fareBreakdown: ShapleyFareBreakdown(
+          soloFare: 280.0,
+          sharedFare: 195.0,
+          coalitionSize: 3,
+        ),
+      );
+
+      cubit.receiveOffer(validOffer);
+      cubit.acceptOffer();
+
+      expect(cubit.state.status, equals(PassengerBookingStatus.tripActive));
+      expect(cubit.state.activeOffer, equals(validOffer));
+    });
+
+    test('declineOffer cancels expiry timer and reverts to planning', () {
+      final validOffer = PooledRideOffer(
+        offerId: 'offer-103',
+        vehicleModel: 'Tata Tigor EV',
+        licensePlate: 'MH-12-RN-4821',
+        driverName: 'Suresh K.',
+        driverRating: 4.9,
+        pickup: PuneLandmarks.kothrud,
+        dropoff: PuneLandmarks.hinjawadiPhase1,
+        pickupEtaMinutes: 4,
+        dropoffEtaMinutes: 26,
+        coPassengersCount: 2,
+        detourPercentage: 8.0,
+        fareBreakdown: ShapleyFareBreakdown(
+          soloFare: 280.0,
+          sharedFare: 195.0,
+          coalitionSize: 3,
+        ),
+      );
+
+      cubit.receiveOffer(validOffer);
+      cubit.declineOffer();
+
+      expect(cubit.state.status, equals(PassengerBookingStatus.planning));
+      expect(cubit.state.activeOffer, isNull);
+    });
+
+    test('offer expiry timer reaches 0 and automatically reverts to planning', () async {
+      final shortOffer = PooledRideOffer(
+        offerId: 'offer-104',
+        vehicleModel: 'Tata Tigor EV',
+        licensePlate: 'MH-12-RN-4821',
+        driverName: 'Suresh K.',
+        driverRating: 4.9,
+        pickup: PuneLandmarks.kothrud,
+        dropoff: PuneLandmarks.hinjawadiPhase1,
+        pickupEtaMinutes: 4,
+        dropoffEtaMinutes: 26,
+        coPassengersCount: 2,
+        detourPercentage: 7.5,
+        fareBreakdown: ShapleyFareBreakdown(
+          soloFare: 280.0,
+          sharedFare: 195.0,
+          coalitionSize: 3,
+        ),
+        offerExpirySeconds: 1,
+      );
+
+      cubit.receiveOffer(shortOffer);
+      expect(cubit.state.status, equals(PassengerBookingStatus.offerReceived));
+
+      await Future.delayed(const Duration(milliseconds: 1200));
+
+      expect(cubit.state.status, equals(PassengerBookingStatus.planning));
+      expect(cubit.state.activeOffer, isNull);
     });
   });
 }

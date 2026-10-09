@@ -10,6 +10,7 @@ import 'package:ridepool_app/widgets/landmark_chips.dart';
 import 'package:ridepool_app/widgets/metric_badge.dart';
 import 'package:ridepool_app/widgets/party_size_selector.dart';
 import 'package:ridepool_app/widgets/pill_button.dart';
+import 'package:ridepool_app/widgets/pooled_ride_offer_card.dart';
 import 'package:ridepool_app/widgets/pune_map_widget.dart';
 import 'package:ridepool_app/widgets/solo_estimate_card.dart';
 import 'package:ridepool_app/widgets/uber_card.dart';
@@ -73,7 +74,7 @@ class _PassengerHomeContent extends StatelessWidget {
                   horizontal: UberSpacing.md,
                   vertical: 2,
                 ),
-                shape: RoundedRectangleBorder(
+                shape: const RoundedRectangleBorder(
                   borderRadius: UberRadii.lg,
                 ),
                 onTap: () {
@@ -93,12 +94,267 @@ class _PassengerHomeContent extends StatelessWidget {
     );
   }
 
+  Widget _buildBottomDrawer(BuildContext context, PassengerState state) {
+    // 1. Batch Waiting Queue active
+    if (state.status == PassengerBookingStatus.batchWaiting) {
+      return BottomDrawerSheet(
+        title: 'Pooling Window Active',
+        subtitle: 'Aggregating nearby Pune commuters',
+        child: BatchWaitingCard(
+          secondsRemaining: state.countdownSeconds,
+          totalSeconds: state.totalCountdownSeconds,
+          onCancel: () {
+            context.read<PassengerCubit>().cancelBatchWaiting();
+          },
+        ),
+      );
+    }
+
+    // 2. Offer Received from optimization matching
+    if (state.status == PassengerBookingStatus.offerReceived &&
+        state.activeOffer != null) {
+      return BottomDrawerSheet(
+        title: 'Ride Match Found',
+        subtitle: 'Guaranteed ≤ 15% detour & Shapley fair savings',
+        child: PooledRideOfferCard(
+          offer: state.activeOffer!,
+          secondsRemaining: state.offerExpirySeconds,
+          onAccept: () {
+            context.read<PassengerCubit>().acceptOffer();
+          },
+          onDecline: () {
+            context.read<PassengerCubit>().declineOffer();
+          },
+        ),
+      );
+    }
+
+    // 3. Active ride accepted (Ready for Ticket 05 live progression)
+    if (state.status == PassengerBookingStatus.tripActive) {
+      return BottomDrawerSheet(
+        title: 'Ride Confirmed & Dispatched',
+        subtitle:
+            '${state.activeOffer?.vehicleModel ?? "Vehicle"} (${state.activeOffer?.licensePlate ?? "MH-12"})',
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            UberCard(
+              variant: UberCardVariant.tinted,
+              padding: const EdgeInsets.all(UberSpacing.md),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      color: UberColors.accentGreenSoft,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check_circle_rounded,
+                      color: UberColors.accentGreen,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: UberSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Driver ${state.activeOffer?.driverName ?? "assigned"} En Route',
+                          style: UberTypography.bodyMdStrong,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Arriving in ~${state.activeOffer?.pickupEtaMinutes ?? 4} mins at pickup point',
+                          style: UberTypography.caption,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: UberSpacing.md),
+            PillButton(
+              key: const Key('trip_active_cancel_button'),
+              label: 'Cancel Active Trip',
+              variant: PillButtonVariant.secondary,
+              fullWidth: true,
+              onPressed: () {
+                context.read<PassengerCubit>().declineOffer();
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 4. Default: Route Planning Sheet
+    final estimate = state.estimate;
+    return BottomDrawerSheet(
+      title: 'Where to in Pune?',
+      subtitle: 'Select stops, seats & view baseline solo fare',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Quick Pune Transit Landmark Chips
+          LandmarkChips(
+            selectedLocation: state.dropoff,
+            onLandmarkSelected: (loc) {
+              context.read<PassengerCubit>().setDropoff(loc);
+            },
+          ),
+          const SizedBox(height: UberSpacing.md),
+
+          // Location Input Card
+          UberCard(
+            variant: UberCardVariant.tinted,
+            padding: const EdgeInsets.all(UberSpacing.md),
+            child: Column(
+              children: [
+                // Pickup row
+                InkWell(
+                  onTap: () => _showLocationPicker(
+                    context: context,
+                    title: 'Select Pickup Location',
+                    isPickup: true,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(
+                          color: UberColors.ink,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: UberSpacing.md),
+                      Expanded(
+                        child: Text(
+                          state.pickup?.name ?? 'Select pickup point',
+                          style: UberTypography.bodyMdStrong,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: UberColors.mute,
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Divider with swap button
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4.5),
+                        child: Container(
+                          height: 18,
+                          width: 1.5,
+                          color: UberColors.mute,
+                        ),
+                      ),
+                      const Spacer(),
+                      InkWell(
+                        onTap: () {
+                          context.read<PassengerCubit>().swapLocations();
+                        },
+                        borderRadius: UberRadii.pill,
+                        child: const Padding(
+                          padding: EdgeInsets.all(4.0),
+                          child: Icon(
+                            Icons.swap_vert_rounded,
+                            size: 18,
+                            color: UberColors.body,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Dropoff row
+                InkWell(
+                  onTap: () => _showLocationPicker(
+                    context: context,
+                    title: 'Select Drop-off Destination',
+                    isPickup: false,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(
+                          color: UberColors.ink,
+                          shape: BoxShape.rectangle,
+                        ),
+                      ),
+                      const SizedBox(width: UberSpacing.md),
+                      Expanded(
+                        child: Text(
+                          state.dropoff?.name ?? 'Select destination',
+                          style: UberTypography.bodyMdStrong,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: UberColors.mute,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: UberSpacing.sm),
+
+          // Party Size Selector (1-3 seats)
+          PartySizeSelector(
+            partySize: state.partySize,
+            onIncrement: () {
+              context.read<PassengerCubit>().incrementPartySize();
+            },
+            onDecrement: () {
+              context.read<PassengerCubit>().decrementPartySize();
+            },
+          ),
+
+          if (estimate != null) ...[
+            const SizedBox(height: UberSpacing.sm),
+            SoloEstimateCard(estimate: estimate),
+          ],
+
+          const SizedBox(height: UberSpacing.md),
+          PillButton(
+            key: const Key('find_shared_pool_button'),
+            label: 'Find Shared Pool',
+            size: PillButtonSize.large,
+            fullWidth: true,
+            icon: Icons.directions_car_filled_rounded,
+            onPressed: () {
+              context.read<PassengerCubit>().startBatchWaiting();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<PassengerCubit, PassengerState>(
       builder: (context, state) {
         final estimate = state.estimate;
-        final isWaiting = state.status == PassengerBookingStatus.batchWaiting;
 
         return Scaffold(
           backgroundColor: UberColors.canvas,
@@ -142,178 +398,12 @@ class _PassengerHomeContent extends StatelessWidget {
                 ),
               ),
 
-              // Bottom Drawer: either BatchWaitingCard or Route Planning Sheet
+              // Bottom Drawer: Dynamically switches based on state
               Positioned(
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child: isWaiting
-                    ? BottomDrawerSheet(
-                        title: 'Pooling Window Active',
-                        subtitle: 'Aggregating nearby Pune commuters',
-                        child: BatchWaitingCard(
-                          secondsRemaining: state.countdownSeconds,
-                          totalSeconds: state.totalCountdownSeconds,
-                          onCancel: () {
-                            context.read<PassengerCubit>().cancelBatchWaiting();
-                          },
-                        ),
-                      )
-                    : BottomDrawerSheet(
-                        title: 'Where to in Pune?',
-                        subtitle: 'Select stops, seats & view baseline solo fare',
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Quick Pune Transit Landmark Chips
-                            LandmarkChips(
-                              selectedLocation: state.dropoff,
-                              onLandmarkSelected: (loc) {
-                                context.read<PassengerCubit>().setDropoff(loc);
-                              },
-                            ),
-                            const SizedBox(height: UberSpacing.md),
-
-                            // Location Input Card
-                            UberCard(
-                              variant: UberCardVariant.tinted,
-                              padding: const EdgeInsets.all(UberSpacing.md),
-                              child: Column(
-                                children: [
-                                  // Pickup row
-                                  InkWell(
-                                    onTap: () => _showLocationPicker(
-                                      context: context,
-                                      title: 'Select Pickup Location',
-                                      isPickup: true,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 10,
-                                          height: 10,
-                                          decoration: const BoxDecoration(
-                                            color: UberColors.ink,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        const SizedBox(width: UberSpacing.md),
-                                        Expanded(
-                                          child: Text(
-                                            state.pickup?.name ?? 'Select pickup point',
-                                            style: UberTypography.bodyMdStrong,
-                                          ),
-                                        ),
-                                        const Icon(
-                                          Icons.chevron_right_rounded,
-                                          size: 18,
-                                          color: UberColors.mute,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-
-                                  // Divider with swap button
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 4),
-                                    child: Row(
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.only(left: 4.5),
-                                          child: Container(
-                                            height: 18,
-                                            width: 1.5,
-                                            color: UberColors.mute,
-                                          ),
-                                        ),
-                                        const Spacer(),
-                                        InkWell(
-                                          onTap: () {
-                                            context.read<PassengerCubit>().swapLocations();
-                                          },
-                                          borderRadius: UberRadii.pill,
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(4.0),
-                                            child: Icon(
-                                              Icons.swap_vert_rounded,
-                                              size: 18,
-                                              color: UberColors.body,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-
-                                  // Dropoff row
-                                  InkWell(
-                                    onTap: () => _showLocationPicker(
-                                      context: context,
-                                      title: 'Select Drop-off Destination',
-                                      isPickup: false,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 10,
-                                          height: 10,
-                                          decoration: const BoxDecoration(
-                                            color: UberColors.ink,
-                                            shape: BoxShape.rectangle,
-                                          ),
-                                        ),
-                                        const SizedBox(width: UberSpacing.md),
-                                        Expanded(
-                                          child: Text(
-                                            state.dropoff?.name ?? 'Select destination',
-                                            style: UberTypography.bodyMdStrong,
-                                          ),
-                                        ),
-                                        const Icon(
-                                          Icons.chevron_right_rounded,
-                                          size: 18,
-                                          color: UberColors.mute,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: UberSpacing.sm),
-
-                            // Party Size Selector (1-3 seats)
-                            PartySizeSelector(
-                              partySize: state.partySize,
-                              onIncrement: () {
-                                context.read<PassengerCubit>().incrementPartySize();
-                              },
-                              onDecrement: () {
-                                context.read<PassengerCubit>().decrementPartySize();
-                              },
-                            ),
-
-                            if (estimate != null) ...[
-                              const SizedBox(height: UberSpacing.sm),
-                              SoloEstimateCard(estimate: estimate),
-                            ],
-
-                            const SizedBox(height: UberSpacing.md),
-                            PillButton(
-                              key: const Key('find_shared_pool_button'),
-                              label: 'Find Shared Pool',
-                              size: PillButtonSize.large,
-                              fullWidth: true,
-                              icon: Icons.directions_car_filled_rounded,
-                              onPressed: () {
-                                context.read<PassengerCubit>().startBatchWaiting();
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
+                child: _buildBottomDrawer(context, state),
               ),
             ],
           ),
