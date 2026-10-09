@@ -30,6 +30,33 @@ class UberColors {
   static const Color accentBlueSoft = Color(0xFFEBF2FD);
 }
 
+/// Distinct high-contrast colors assigned to each pooled booking/rider on the live map.
+class BookingColors {
+  BookingColors._();
+
+  static const Color booking1 = Color(0xFF0066FF); // Rider 1 / You: Royal Blue
+  static const Color booking2 = Color(0xFF8B5CF6); // Rider 2: Electric Violet / Purple
+  static const Color booking3 = Color(0xFFF97316); // Rider 3: Vivid Amber-Orange
+  static const Color booking4 = Color(0xFF059669); // Rider 4: Emerald Green
+  static const Color booking5 = Color(0xFFEC4899); // Rider 5: Fuchsia Pink
+  static const Color booking6 = Color(0xFF0D9488); // Rider 6: Dark Teal
+
+  static const List<Color> palette = [
+    booking1,
+    booking2,
+    booking3,
+    booking4,
+    booking5,
+    booking6,
+  ];
+
+  static Color getColor(int bookingIndex) {
+    if (bookingIndex <= 0) return booking1;
+    final idx = (bookingIndex - 1) % palette.length;
+    return palette[idx];
+  }
+}
+
 class UberRadii {
   UberRadii._();
 

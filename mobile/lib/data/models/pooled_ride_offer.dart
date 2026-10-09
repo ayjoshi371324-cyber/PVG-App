@@ -27,7 +27,24 @@ class ShapleyFareBreakdown extends Equatable {
     required this.sharedFare,
     required this.coalitionSize,
     this.explanation = 'Exact Shapley value allocation based on shared travel segments.',
-  }) {
+    double? totalTripCost,
+    this.partySize = 1,
+    double? perPersonFare,
+    this.fixedFeeShare = 0.0,
+    this.marginalContribution = 0.0,
+    this.marginalContributions = const {},
+    this.coalitionTable = const {},
+    this.passengerShares = const {},
+    this.soloFares = const {},
+    this.partySizes = const {},
+    this.rawShare,
+    this.roundingAdjustment,
+  })  : totalTripCost = totalTripCost ??
+            (passengerShares.isNotEmpty
+                ? passengerShares.values.fold(0.0, (s, v) => s + v)
+                : sharedFare),
+        perPersonFare = perPersonFare ??
+            (partySize > 1 ? sharedFare / partySize : sharedFare) {
     if (soloFare < 0 || sharedFare < 0) {
       throw ArgumentError('Fares cannot be negative.');
     }
@@ -42,6 +59,18 @@ class ShapleyFareBreakdown extends Equatable {
   final double sharedFare;
   final int coalitionSize;
   final String explanation;
+  final double totalTripCost;
+  final int partySize;
+  final double perPersonFare;
+  final double fixedFeeShare;
+  final double marginalContribution;
+  final Map<String, double> marginalContributions;
+  final Map<String, double> coalitionTable;
+  final Map<String, double> passengerShares;
+  final Map<String, double> soloFares;
+  final Map<String, int> partySizes;
+  final double? rawShare;
+  final double? roundingAdjustment;
 
   /// Absolute monetary savings in ₹ compared to a solo trip.
   double get savings => soloFare - sharedFare;
@@ -58,6 +87,18 @@ class ShapleyFareBreakdown extends Equatable {
         'sharedFare': sharedFare,
         'coalitionSize': coalitionSize,
         'explanation': explanation,
+        'totalTripCost': totalTripCost,
+        'partySize': partySize,
+        'perPersonFare': perPersonFare,
+        'fixedFeeShare': fixedFeeShare,
+        'marginalContribution': marginalContribution,
+        'marginalContributions': marginalContributions,
+        'coalitionTable': coalitionTable,
+        'passengerShares': passengerShares,
+        'soloFares': soloFares,
+        'partySizes': partySizes,
+        'rawShare': rawShare,
+        'roundingAdjustment': roundingAdjustment,
       };
 
   factory ShapleyFareBreakdown.fromJson(Map<String, dynamic> json) =>
@@ -67,10 +108,58 @@ class ShapleyFareBreakdown extends Equatable {
         coalitionSize: (json['coalitionSize'] as num).toInt(),
         explanation: json['explanation'] as String? ??
             'Exact Shapley value allocation based on shared travel segments.',
+        totalTripCost: (json['totalTripCost'] as num?)?.toDouble(),
+        partySize: (json['partySize'] as num?)?.toInt() ?? 1,
+        perPersonFare: (json['perPersonFare'] as num?)?.toDouble(),
+        fixedFeeShare: (json['fixedFeeShare'] as num?)?.toDouble() ?? 0.0,
+        marginalContribution:
+            (json['marginalContribution'] as num?)?.toDouble() ?? 0.0,
+        marginalContributions:
+            (json['marginalContributions'] as Map<String, dynamic>?)?.map(
+                  (k, v) => MapEntry(k, (v as num).toDouble()),
+                ) ??
+                const {},
+        coalitionTable:
+            (json['coalitionTable'] as Map<String, dynamic>?)?.map(
+                  (k, v) => MapEntry(k, (v as num).toDouble()),
+                ) ??
+                const {},
+        passengerShares:
+            (json['passengerShares'] as Map<String, dynamic>?)?.map(
+                  (k, v) => MapEntry(k, (v as num).toDouble()),
+                ) ??
+                const {},
+        soloFares: (json['soloFares'] as Map<String, dynamic>?)?.map(
+              (k, v) => MapEntry(k, (v as num).toDouble()),
+            ) ??
+            const {},
+        partySizes: (json['partySizes'] as Map<String, dynamic>?)?.map(
+              (k, v) => MapEntry(k, (v as num).toInt()),
+            ) ??
+            const {},
+        rawShare: (json['rawShare'] as num?)?.toDouble(),
+        roundingAdjustment: (json['roundingAdjustment'] as num?)?.toDouble(),
       );
 
   @override
-  List<Object?> get props => [soloFare, sharedFare, coalitionSize, explanation];
+  List<Object?> get props => [
+        soloFare,
+        sharedFare,
+        coalitionSize,
+        explanation,
+        totalTripCost,
+        partySize,
+        perPersonFare,
+        fixedFeeShare,
+        marginalContribution,
+        marginalContributions,
+        coalitionTable,
+        passengerShares,
+        soloFares,
+        partySizes,
+        rawShare,
+        roundingAdjustment,
+      ];
 }
 
 /// Represents an optimized pooled ride offer presented to the passenger.
@@ -90,7 +179,8 @@ class PooledRideOffer extends Equatable {
     required this.detourPercentage,
     required this.fareBreakdown,
     this.offerExpirySeconds = 20,
-  }) {
+    int? partySize,
+  }) : partySize = partySize ?? fareBreakdown.partySize {
     if (detourPercentage > kMaxDetourGuaranteePercentage) {
       throw DetourGuaranteeViolationException(
         detourPercentage: detourPercentage,
@@ -113,6 +203,10 @@ class PooledRideOffer extends Equatable {
   final double detourPercentage;
   final ShapleyFareBreakdown fareBreakdown;
   final int offerExpirySeconds;
+  final int partySize;
+
+  /// Convenient getter for per-person fare inside parties.
+  double get perPersonFare => fareBreakdown.perPersonFare;
 
   /// Confirms that the detour is within the strict 15.0% guarantee threshold.
   bool get isDetourGuaranteed =>
@@ -133,6 +227,7 @@ class PooledRideOffer extends Equatable {
         'detourPercentage': detourPercentage,
         'fareBreakdown': fareBreakdown.toJson(),
         'offerExpirySeconds': offerExpirySeconds,
+        'partySize': partySize,
       };
 
   factory PooledRideOffer.fromJson(Map<String, dynamic> json) =>
@@ -156,6 +251,7 @@ class PooledRideOffer extends Equatable {
         fareBreakdown: ShapleyFareBreakdown.fromJson(
             json['fareBreakdown'] as Map<String, dynamic>),
         offerExpirySeconds: (json['offerExpirySeconds'] as num?)?.toInt() ?? 20,
+        partySize: (json['partySize'] as num?)?.toInt(),
       );
 
   @override
@@ -174,5 +270,6 @@ class PooledRideOffer extends Equatable {
         detourPercentage,
         fareBreakdown,
         offerExpirySeconds,
+        partySize,
       ];
 }

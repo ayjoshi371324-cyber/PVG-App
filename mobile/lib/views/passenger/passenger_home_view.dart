@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:ridepool_app/blocs/passenger/passenger_cubit.dart';
 import 'package:ridepool_app/blocs/passenger/passenger_state.dart';
 import 'package:ridepool_app/core/engine/batch_matching_engine.dart';
@@ -363,16 +364,40 @@ class _PassengerHomeContent extends StatelessWidget {
         final activeTrip = state.activeTrip;
         final cubit = context.read<PassengerCubit>();
 
+        List<LatLng> confirmedPoints = estimate?.polylinePoints ?? const [];
+        List<LatLng> completedPoints = const [];
+        List<LatLng> proposedPoints = const [];
+
+        if (activeTrip != null) {
+          if (activeTrip.currentWaypointIndex > 0 && confirmedPoints.isNotEmpty) {
+            final splitIdx = ((activeTrip.progress * confirmedPoints.length).round())
+                .clamp(0, confirmedPoints.length);
+            completedPoints = confirmedPoints.sublist(0, splitIdx);
+            confirmedPoints = confirmedPoints.sublist(splitIdx);
+          }
+          if (activeTrip.pendingJoinRequest != null) {
+            final joinReq = activeTrip.pendingJoinRequest!;
+            proposedPoints = [
+              activeTrip.vehiclePosition,
+              joinReq.pickupLocation.toLatLng(),
+              joinReq.dropoffLocation.toLatLng(),
+            ];
+          }
+        }
+
         return Scaffold(
           backgroundColor: UberColors.canvas,
           body: Stack(
             children: [
-              // Interactive OpenStreetMap view with route polyline, stops, and moving vehicle
+              // Interactive OpenStreetMap view with multi-passenger stops, markers, and polylines
               Positioned.fill(
                 child: PuneMapWidget(
                   pickup: state.pickup,
                   dropoff: state.dropoff,
-                  polylinePoints: estimate?.polylinePoints ?? const [],
+                  waypoints: activeTrip?.waypoints ?? const [],
+                  confirmedPolylinePoints: confirmedPoints,
+                  completedPolylinePoints: completedPoints,
+                  proposedPolylinePoints: proposedPoints,
                   vehiclePosition: activeTrip?.vehiclePosition,
                   onMapTap: state.isPinConfirmationMode
                       ? (point) {

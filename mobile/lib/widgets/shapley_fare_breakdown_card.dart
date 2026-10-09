@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ridepool_app/core/theme.dart';
 import 'package:ridepool_app/data/models/pooled_ride_offer.dart';
 import 'package:ridepool_app/widgets/uber_card.dart';
+import 'package:ridepool_app/widgets/why_am_i_paying_sheet.dart';
 
 /// Card presenting the transparent Shapley-value fair fare calculation
 /// comparing baseline solo price vs. the discounted pooled fare.
@@ -118,11 +119,69 @@ class ShapleyFareBreakdownCard extends StatelessWidget {
             '-₹$savingsRounded',
             isDiscount: true,
           ),
+          if (breakdown.partySize > 1)
+            _buildRow(
+              'Party of ${breakdown.partySize}',
+              '₹${breakdown.perPersonFare.round()} / person',
+              isHighlight: true,
+            ),
           _buildRow(
             'Your Final Pooled Fare',
             '₹$sharedRounded',
             isBold: true,
           ),
+
+          if (breakdown.passengerShares.isNotEmpty) ...[
+            const SizedBox(height: UberSpacing.xs),
+            const Divider(height: 1, color: UberColors.canvasSoft),
+            const SizedBox(height: UberSpacing.xs),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Co-Passenger Shares (Exact Sum)',
+                  style: UberTypography.caption.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: UberColors.body,
+                  ),
+                ),
+                Text(
+                  'Total: ₹${breakdown.totalTripCost.round()}',
+                  style: UberTypography.caption.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: UberColors.ink,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            ...breakdown.passengerShares.entries.map((e) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 1.5),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        e.key,
+                        style: UberTypography.caption.copyWith(
+                          color: e.key.contains('(You)')
+                              ? UberColors.accentGreen
+                              : UberColors.body,
+                          fontWeight: e.key.contains('(You)')
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        '₹${e.value.toStringAsFixed(2)}',
+                        style: UberTypography.caption.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: UberColors.ink,
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+          ],
 
           const SizedBox(height: UberSpacing.xs),
           Text(
@@ -132,13 +191,62 @@ class ShapleyFareBreakdownCard extends StatelessWidget {
               fontSize: 11,
             ),
           ),
+
+          const SizedBox(height: UberSpacing.sm),
+
+          // Interactive "Why am I paying this fare?" Expandable Sheet Button
+          InkWell(
+            key: const Key('why_am_i_paying_this_fare_button'),
+            borderRadius: UberRadii.md,
+            onTap: () {
+              WhyAmIPayingSheet.show(context, breakdown);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: UberSpacing.sm,
+                vertical: UberSpacing.xs,
+              ),
+              decoration: BoxDecoration(
+                color: UberColors.canvasSoft,
+                borderRadius: UberRadii.md,
+                border: Border.all(color: UberColors.surfacePressed),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.help_outline_rounded,
+                        size: 14,
+                        color: UberColors.ink,
+                      ),
+                      const SizedBox(width: UberSpacing.xs),
+                      Text(
+                        'Why am I paying this fare?',
+                        style: UberTypography.caption.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: UberColors.ink,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 16,
+                    color: UberColors.body,
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildRow(String label, String value,
-      {bool isDiscount = false, bool isBold = false}) {
+      {bool isDiscount = false, bool isBold = false, bool isHighlight = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.5),
       child: Row(
@@ -150,7 +258,9 @@ class ShapleyFareBreakdownCard extends StatelessWidget {
                     ? UberTypography.bodySmStrong
                     : UberTypography.caption)
                 .copyWith(
-              color: isDiscount ? UberColors.accentGreen : UberColors.body,
+              color: isHighlight
+                  ? UberColors.accentBlue
+                  : (isDiscount ? UberColors.accentGreen : UberColors.body),
             ),
           ),
           Text(
@@ -160,9 +270,11 @@ class ShapleyFareBreakdownCard extends StatelessWidget {
                     : UberTypography.caption)
                 .copyWith(
               fontWeight: isBold ? FontWeight.w700 : FontWeight.w600,
-              color: isDiscount
-                  ? UberColors.accentGreen
-                  : (isBold ? UberColors.ink : UberColors.body),
+              color: isHighlight
+                  ? UberColors.accentBlue
+                  : (isDiscount
+                      ? UberColors.accentGreen
+                      : (isBold ? UberColors.ink : UberColors.body)),
             ),
           ),
         ],

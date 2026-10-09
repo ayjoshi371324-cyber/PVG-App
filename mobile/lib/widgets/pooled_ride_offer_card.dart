@@ -190,7 +190,7 @@ class PooledRideOfferCard extends StatelessWidget {
 
         const SizedBox(height: UberSpacing.sm),
 
-        // Prominent Detour Guarantee Badge & Co-passenger banner
+        // Prominent Detour Guarantee Badge, Co-passenger banner & Party size badge
         Wrap(
           alignment: WrapAlignment.spaceBetween,
           crossAxisAlignment: WrapCrossAlignment.center,
@@ -200,6 +200,39 @@ class PooledRideOfferCard extends StatelessWidget {
             DetourGuaranteeBadge(
               detourPercentage: offer.detourPercentage,
             ),
+            if (offer.partySize > 1)
+              Container(
+                key: const Key('per_person_fare_badge'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: UberSpacing.sm,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: UberColors.accentBlueSoft,
+                  borderRadius: UberRadii.pill,
+                  border: Border.all(
+                    color: UberColors.accentBlue.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.group_outlined,
+                      size: 14,
+                      color: UberColors.accentBlue,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '₹${offer.perPersonFare.round()} / person (Party of ${offer.partySize})',
+                      style: UberTypography.caption.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: UberColors.accentBlue,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Text(
               '${offer.coPassengersCount} Co-passengers sharing route',
               style: UberTypography.caption.copyWith(

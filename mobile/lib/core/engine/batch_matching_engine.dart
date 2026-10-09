@@ -381,6 +381,40 @@ class CombinatorialBatchMatcher {
 
       final coRiders = coalition.where((r) => r.id != targetRequest.id).toList();
 
+      // Build privacy-safe aliases and map candidate mathematical shares
+      final aliasMap = <String, String>{};
+      aliasMap[targetRequest.id] = 'Rider A (You)';
+      int coIndex = 1;
+      for (final co in coRiders) {
+        final letter = String.fromCharCode('B'.codeUnitAt(0) + (coIndex - 1));
+        aliasMap[co.id] = 'Rider $letter';
+        coIndex++;
+      }
+
+      final passengerShares = <String, double>{};
+      final marginalContributions = <String, double>{};
+      final soloFaresMap = <String, double>{};
+      final partySizesMap = <String, int>{};
+
+      for (final req in coalition) {
+        final alias = aliasMap[req.id] ?? req.passengerName;
+        passengerShares[alias] = fareResult.allocatedFares[req.id] ?? 0.0;
+        marginalContributions[alias] = fareResult.rawShares[req.id] ?? 0.0;
+        soloFaresMap[alias] = fareResult.soloFares[req.id] ?? 0.0;
+        partySizesMap[alias] = req.partySize;
+      }
+
+      // Format characteristic function coalition table with privacy-safe aliases
+      final aliasCoalitionTable = <String, double>{};
+      for (final entry in fareResult.coalitionTable.entries) {
+        final ids = entry.key.split(',');
+        final aliasKey = ids.map((id) => aliasMap[id] ?? id).join(', ');
+        aliasCoalitionTable[aliasKey] = entry.value;
+      }
+
+      final fixedFeeShare =
+          (costModel.baseFee * vehicle.tier.rateMultiplier) / coalition.length;
+
       final offer = PooledRideOffer(
         offerId: 'offer-batch-${DateTime.now().millisecondsSinceEpoch}',
         vehicleModel: vehicle.model,
@@ -395,13 +429,26 @@ class CombinatorialBatchMatcher {
                 .round(),
         coPassengersCount: coRiders.fold(0, (sum, r) => sum + r.partySize),
         coPassengerLabels: coRiders
-            .map((r) => '${r.passengerName} (${r.pickup.name.split(" ").first})')
+            .map((r) => '${aliasMap[r.id]} (${r.pickup.name.split(" ").first})')
             .toList(),
         detourPercentage: userDetour,
+        partySize: targetRequest.partySize,
         fareBreakdown: ShapleyFareBreakdown(
           soloFare: userSoloFare,
           sharedFare: userSharedFare,
           coalitionSize: coalition.length,
+          partySize: targetRequest.partySize,
+          perPersonFare: userSharedFare / targetRequest.partySize,
+          totalTripCost: fareResult.totalTripCost,
+          fixedFeeShare: double.parse(fixedFeeShare.toStringAsFixed(2)),
+          marginalContribution:
+              fareResult.rawShares[targetRequest.id] ?? userSharedFare,
+          marginalContributions: marginalContributions,
+          coalitionTable: aliasCoalitionTable,
+          passengerShares: passengerShares,
+          soloFares: soloFaresMap,
+          partySizes: partySizesMap,
+          rawShare: fareResult.rawShares[targetRequest.id],
           explanation:
               'Exact Shapley allocation for ${vehicle.tier.displayName} group. Guaranteed ≤15% detour.',
         ),
