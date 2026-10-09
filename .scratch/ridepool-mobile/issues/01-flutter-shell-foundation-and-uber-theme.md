@@ -5,10 +5,10 @@ Initialize the Flutter project structure and establish the root application shel
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Flutter project structure initialized in `mobile/` with core directories (`core/`, `data/`, `blocs/`, `views/`, `widgets/`).
-- [ ] Uber design system implemented in `mobile/lib/core/theme.dart` reflecting `DESIGN-uber.md` color palette, 999px pill geometry, and typography styles.
-- [ ] Persistent role navigation bar / switcher toggles between Passenger, Driver, and Operations modes smoothly.
-- [ ] Reusable signature widgets (`PillButton`, `MetricBadge`, `UberCard`, `BottomDrawerSheet`) implemented and verified.
-- [ ] Unit and widget tests pass verifying theme token adherence and role-switching state transitions.
+- [x] Flutter project structure initialized in `mobile/` with core directories (`core/`, `data/`, `blocs/`, `views/`, `widgets/`).
+- [x] Uber design system implemented in `mobile/lib/core/theme.dart` reflecting `DESIGN-uber.md` color palette, 999px pill geometry, and typography styles.
+- [x] Persistent role navigation bar / switcher toggles between Passenger, Driver, and Operations modes smoothly.
+- [x] Reusable signature widgets (`PillButton`, `MetricBadge`, `UberCard`, `BottomDrawerSheet`) implemented and verified.
+- [x] Unit and widget tests pass verifying theme token adherence and role-switching state transitions.
