@@ -16,6 +16,8 @@ import 'package:ridepool_app/widgets/pill_button.dart';
 import 'package:ridepool_app/widgets/pooled_ride_offer_card.dart';
 import 'package:ridepool_app/widgets/pune_map_widget.dart';
 import 'package:ridepool_app/widgets/solo_estimate_card.dart';
+import 'package:ridepool_app/widgets/trip_history_sheet.dart';
+import 'package:ridepool_app/widgets/trip_receipt_card.dart';
 import 'package:ridepool_app/widgets/uber_card.dart';
 
 class PassengerHomeView extends StatelessWidget {
@@ -98,7 +100,32 @@ class _PassengerHomeContent extends StatelessWidget {
   }
 
   Widget _buildBottomDrawer(BuildContext context, PassengerState state) {
-    // 1. Batch Waiting Queue active
+    // 0. Viewing Past Trip History
+    if (state.isViewingHistory) {
+      return TripHistorySheet(
+        history: state.tripHistory,
+        onClose: () {
+          context.read<PassengerCubit>().toggleTripHistory(false);
+        },
+      );
+    }
+
+    // 1. Trip Completed Receipt Screen
+    if (state.status == PassengerBookingStatus.tripCompleted &&
+        state.activeReceipt != null) {
+      return BottomDrawerSheet(
+        title: 'Trip Completed',
+        subtitle: 'Arrived safely at destination',
+        child: TripReceiptCard(
+          receipt: state.activeReceipt!,
+          onDone: () {
+            context.read<PassengerCubit>().dismissReceipt();
+          },
+        ),
+      );
+    }
+
+    // 2. Batch Waiting Queue active
     if (state.status == PassengerBookingStatus.batchWaiting) {
       return BottomDrawerSheet(
         title: 'Pooling Window Active',
@@ -381,12 +408,25 @@ class _PassengerHomeContent extends StatelessWidget {
                       variant: MetricBadgeVariant.success,
                       compact: true,
                     ),
-                    const MetricBadge(
-                      label: 'Pricing',
-                      value: 'Shapley Split',
-                      icon: Icons.savings_outlined,
-                      variant: MetricBadgeVariant.neutral,
-                      compact: true,
+                    InkWell(
+                      key: const Key('view_history_button'),
+                      borderRadius: UberRadii.pill,
+                      onTap: () {
+                        context
+                            .read<PassengerCubit>()
+                            .toggleTripHistory(!state.isViewingHistory);
+                      },
+                      child: MetricBadge(
+                        label: 'History',
+                        value: state.tripHistory.isEmpty
+                            ? 'Past Rides'
+                            : '${state.tripHistory.length} Past',
+                        icon: Icons.history_rounded,
+                        variant: state.isViewingHistory
+                            ? MetricBadgeVariant.dark
+                            : MetricBadgeVariant.neutral,
+                        compact: true,
+                      ),
                     ),
                   ],
                 ),

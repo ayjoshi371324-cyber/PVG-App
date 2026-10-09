@@ -14,13 +14,19 @@ import 'package:ridepool_app/widgets/mid_trip_consent_sheet.dart';
 import 'package:ridepool_app/widgets/party_size_selector.dart';
 import 'package:ridepool_app/widgets/pooled_ride_offer_card.dart';
 import 'package:ridepool_app/widgets/shapley_fare_breakdown_card.dart';
+import 'package:ridepool_app/widgets/trip_history_sheet.dart';
 import 'package:ridepool_app/widgets/trip_progression_bar.dart';
+import 'package:ridepool_app/widgets/trip_receipt_card.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('Passenger Booking Flow Integration', () {
     late PassengerCubit passengerCubit;
 
     setUp(() {
+      SharedPreferences.setMockInitialValues({});
       passengerCubit = PassengerCubit();
     });
 
@@ -196,6 +202,108 @@ void main() {
           equals(PassengerBookingStatus.planning));
       expect(find.byType(PooledRideOfferCard), findsNothing);
       expect(find.byType(PartySizeSelector), findsOneWidget);
+    });
+
+    testWidgets(
+        'completing all waypoints navigates to TripReceiptCard with Shapley breakdown and persists receipt',
+        (tester) async {
+      await tester.pumpWidget(createWidgetUnderTest());
+      await tester.pumpAndSettle();
+
+      final offer = PooledRideOffer(
+        offerId: 'offer-int-003',
+        vehicleModel: 'Tata Nexon EV',
+        licensePlate: 'MH-12-RP-1234',
+        driverName: 'Suresh K.',
+        driverRating: 4.95,
+        pickup: PuneLandmarks.kothrud,
+        dropoff: PuneLandmarks.hinjawadiPhase1,
+        pickupEtaMinutes: 3,
+        dropoffEtaMinutes: 24,
+        coPassengersCount: 2,
+        coPassengerLabels: const ['Aarav (Swargate)', 'Pooja (Kothrud)'],
+        detourPercentage: 11.2,
+        fareBreakdown: ShapleyFareBreakdown(
+          soloFare: 280.0,
+          sharedFare: 171.0,
+          coalitionSize: 3,
+        ),
+        offerExpirySeconds: 20,
+      );
+
+      passengerCubit.receiveOffer(offer);
+      await tester.pumpAndSettle();
+
+      // Accept Offer
+      await tester.tap(find.byKey(const Key('accept_pool_offer_button')));
+      await tester.pumpAndSettle();
+
+      expect(
+          passengerCubit.state.status, equals(PassengerBookingStatus.tripActive));
+
+      // Advance through all waypoints until destination is reached
+      while (passengerCubit.state.status == PassengerBookingStatus.tripActive) {
+        await tester.tap(find.byKey(const Key('advance_trip_step_button')));
+        await tester.pumpAndSettle();
+      }
+
+      // Verify tripCompleted status and TripReceiptCard display
+      expect(passengerCubit.state.status,
+          equals(PassengerBookingStatus.tripCompleted));
+      expect(find.byType(TripReceiptCard), findsOneWidget);
+      expect(find.text('Arrived at Destination'), findsOneWidget);
+      expect(find.text('₹171'), findsWidgets);
+      expect(find.text('₹280'), findsOneWidget);
+      expect(find.textContaining('Save ₹109'), findsOneWidget);
+      expect(find.textContaining('Suresh K.'), findsOneWidget);
+      expect(find.textContaining('Tata Nexon EV'), findsOneWidget);
+      expect(find.textContaining('kg CO₂'), findsOneWidget);
+
+      // Verify Shapley Coalition Table expands
+      final auditToggle = find.byKey(const Key('shapley_audit_toggle'));
+      expect(auditToggle, findsOneWidget);
+      await tester.tap(auditToggle);
+      await tester.pumpAndSettle();
+
+      expect(find.text('You (User)'), findsOneWidget);
+      expect(find.textContaining('Fair Share: ₹171'), findsOneWidget);
+
+      // Verify receipt was persisted in tripHistory
+      expect(passengerCubit.state.tripHistory.length, equals(1));
+      expect(passengerCubit.state.tripHistory.first.vehicleModel,
+          equals('Tata Nexon EV'));
+
+      // Tap Book Another Ride button
+      await tester.tap(find.byKey(const Key('receipt_done_button')));
+      await tester.pumpAndSettle();
+
+      // Back to planning state
+      expect(passengerCubit.state.status,
+          equals(PassengerBookingStatus.planning));
+      expect(find.byType(TripReceiptCard), findsNothing);
+      expect(find.byType(PartySizeSelector), findsOneWidget);
+    });
+
+    testWidgets(
+        'tapping view_history_button opens TripHistorySheet and allows inspection',
+        (tester) async {
+      await tester.pumpWidget(createWidgetUnderTest());
+      await tester.pumpAndSettle();
+
+      // Tap history button
+      final historyBtn = find.byKey(const Key('view_history_button'));
+      expect(historyBtn, findsOneWidget);
+      await tester.tap(historyBtn);
+      await tester.pumpAndSettle();
+
+      // Renders TripHistorySheet
+      expect(find.byType(TripHistorySheet), findsOneWidget);
+
+      // Close history
+      await tester.tap(find.byKey(const Key('close_history_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TripHistorySheet), findsNothing);
     });
   });
 }

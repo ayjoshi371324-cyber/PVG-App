@@ -4,12 +4,16 @@ import 'package:ridepool_app/blocs/passenger/passenger_state.dart';
 import 'package:ridepool_app/core/route_estimator.dart';
 import 'package:ridepool_app/data/models/active_trip.dart';
 import 'package:ridepool_app/data/models/pooled_ride_offer.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('PassengerCubit', () {
     late PassengerCubit cubit;
 
     setUp(() {
+      SharedPreferences.setMockInitialValues({});
       cubit = PassengerCubit();
     });
 
@@ -440,6 +444,54 @@ void main() {
       expect(cubit.state.activeTrip!.waypoints.length,
           equals(initialWaypointCount));
       expect(cubit.state.activeTrip!.currentDetourPercentage, equals(8.0));
+    });
+
+    test('completeActiveTrip creates receipt, saves to repository, and enters tripCompleted', () async {
+      final validOffer = PooledRideOffer(
+        offerId: 'offer-110',
+        vehicleModel: 'Tata Tigor EV',
+        licensePlate: 'MH-12-RN-4821',
+        driverName: 'Suresh K.',
+        driverRating: 4.9,
+        pickup: PuneLandmarks.kothrud,
+        dropoff: PuneLandmarks.hinjawadiPhase1,
+        pickupEtaMinutes: 4,
+        dropoffEtaMinutes: 26,
+        coPassengersCount: 2,
+        detourPercentage: 8.4,
+        fareBreakdown: ShapleyFareBreakdown(
+          soloFare: 280.0,
+          sharedFare: 196.0,
+          coalitionSize: 3,
+        ),
+      );
+
+      cubit.receiveOffer(validOffer);
+      cubit.acceptOffer();
+
+      await cubit.completeActiveTrip();
+
+      expect(cubit.state.status, equals(PassengerBookingStatus.tripCompleted));
+      expect(cubit.state.activeReceipt, isNotNull);
+      expect(cubit.state.activeReceipt!.finalPayableFare, equals(196.0));
+      expect(cubit.state.activeReceipt!.savings, equals(84.0));
+      expect(cubit.state.activeReceipt!.coalitionAudits.isNotEmpty, isTrue);
+      expect(cubit.state.activeReceipt!.environmentalImpact.vehicleKmSaved, greaterThan(0));
+
+      // Dismiss receipt resets to planning
+      cubit.dismissReceipt();
+      expect(cubit.state.status, equals(PassengerBookingStatus.planning));
+      expect(cubit.state.activeReceipt, isNull);
+    });
+
+    test('toggleTripHistory toggles isViewingHistory flag', () {
+      expect(cubit.state.isViewingHistory, isFalse);
+
+      cubit.toggleTripHistory(true);
+      expect(cubit.state.isViewingHistory, isTrue);
+
+      cubit.toggleTripHistory(false);
+      expect(cubit.state.isViewingHistory, isFalse);
     });
   });
 }

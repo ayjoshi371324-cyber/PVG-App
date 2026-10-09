@@ -5,13 +5,18 @@ import 'package:ridepool_app/core/route_estimator.dart';
 import 'package:ridepool_app/data/models/active_trip.dart';
 import 'package:ridepool_app/data/models/pooled_ride_offer.dart';
 import 'package:ridepool_app/data/models/pune_location.dart';
+import 'package:ridepool_app/data/models/trip_receipt.dart';
+import 'package:ridepool_app/repositories/trip_history_repository.dart';
 
 class PassengerCubit extends Cubit<PassengerState> {
   PassengerCubit({
     RouteEstimatorService estimator = const RouteEstimatorService(),
+    TripHistoryRepository? historyRepository,
     PuneLocation? initialPickup = PuneLandmarks.kothrud,
     PuneLocation? initialDropoff = PuneLandmarks.hinjawadiPhase1,
   })  : _estimator = estimator,
+        _historyRepository =
+            historyRepository ?? LocalTripHistoryRepository(),
         super(PassengerState(
           pickup: initialPickup,
           dropoff: initialDropoff,
@@ -21,11 +26,23 @@ class PassengerCubit extends Cubit<PassengerState> {
                   dropoff: initialDropoff,
                 )
               : null,
-        ));
+        )) {
+    loadTripHistory();
+  }
 
   final RouteEstimatorService _estimator;
+  final TripHistoryRepository _historyRepository;
   Timer? _countdownTimer;
   Timer? _offerExpiryTimer;
+
+  Future<void> loadTripHistory() async {
+    final history = await _historyRepository.getTripHistory();
+    emit(state.copyWith(tripHistory: history));
+  }
+
+  void toggleTripHistory(bool show) {
+    emit(state.copyWith(isViewingHistory: show));
+  }
 
   void setPickup(PuneLocation location) {
     final newDropoff = state.dropoff;
@@ -106,6 +123,7 @@ class PassengerCubit extends Cubit<PassengerState> {
       totalCountdownSeconds: durationSeconds,
       clearActiveOffer: true,
       clearActiveTrip: true,
+      clearActiveReceipt: true,
     ));
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -130,6 +148,7 @@ class PassengerCubit extends Cubit<PassengerState> {
       countdownSeconds: 15,
       clearActiveOffer: true,
       clearActiveTrip: true,
+      clearActiveReceipt: true,
     ));
   }
 
@@ -150,6 +169,7 @@ class PassengerCubit extends Cubit<PassengerState> {
       countdownSeconds: 0,
       offerExpirySeconds: offer.offerExpirySeconds,
       clearActiveTrip: true,
+      clearActiveReceipt: true,
     ));
 
     _offerExpiryTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -164,6 +184,7 @@ class PassengerCubit extends Cubit<PassengerState> {
           status: PassengerBookingStatus.planning,
           clearActiveOffer: true,
           clearActiveTrip: true,
+          clearActiveReceipt: true,
           offerExpirySeconds: 20,
         ));
       }
@@ -186,6 +207,7 @@ class PassengerCubit extends Cubit<PassengerState> {
     emit(state.copyWith(
       status: PassengerBookingStatus.tripActive,
       activeTrip: activeTrip,
+      clearActiveReceipt: true,
     ));
   }
 
@@ -195,6 +217,7 @@ class PassengerCubit extends Cubit<PassengerState> {
       status: PassengerBookingStatus.planning,
       clearActiveOffer: true,
       clearActiveTrip: true,
+      clearActiveReceipt: true,
       offerExpirySeconds: 20,
     ));
   }
@@ -202,8 +225,88 @@ class PassengerCubit extends Cubit<PassengerState> {
   void advanceTripStep() {
     final trip = state.activeTrip;
     if (trip == null) return;
+
+    if (trip.currentWaypointIndex >= trip.waypoints.length - 1) {
+      // Reached destination milestone
+      completeActiveTrip();
+      return;
+    }
+
     emit(state.copyWith(
       activeTrip: trip.advanceWaypoint(),
+    ));
+  }
+
+  Future<void> completeActiveTrip() async {
+    final trip = state.activeTrip;
+    final offer = trip?.offer ?? state.activeOffer;
+    if (offer == null) return;
+
+    final soloFare = offer.fareBreakdown.soloFare;
+    final finalFare = offer.fareBreakdown.sharedFare;
+    final detour =
+        trip?.currentDetourPercentage ?? offer.detourPercentage;
+    final distanceKm = state.estimate?.distanceKm ?? 14.0;
+
+    // Environmental metrics based on shared distance
+    final kmSaved = (distanceKm * 0.6).clamp(1.0, 50.0);
+    final co2Saved = kmSaved * 0.12;
+
+    final receipt = TripReceipt(
+      receiptId: 'rcpt-${DateTime.now().millisecondsSinceEpoch}',
+      tripId: trip?.tripId ?? 'trip-${offer.offerId}',
+      vehicleModel: offer.vehicleModel,
+      licensePlate: offer.licensePlate,
+      driverName: offer.driverName,
+      pickup: offer.pickup,
+      dropoff: offer.dropoff,
+      completedAt: DateTime.now(),
+      soloReferenceFare: soloFare,
+      finalPayableFare: finalFare,
+      finalDetourPercentage: detour,
+      environmentalImpact: EnvironmentalImpact(
+        vehicleKmSaved: (kmSaved * 10).round() / 10.0,
+        co2SavedKg: (co2Saved * 100).round() / 100.0,
+      ),
+      coalitionAudits: [
+        CoalitionMemberAudit(
+          passengerName: 'You',
+          isUser: true,
+          soloFare: soloFare,
+          marginalContribution: (soloFare * 0.45).roundToDouble(),
+          shapleyFairShare: finalFare,
+        ),
+        for (final coPassenger in offer.coPassengerLabels)
+          CoalitionMemberAudit(
+            passengerName: coPassenger.split(' ').first,
+            soloFare: (soloFare * 0.85).roundToDouble(),
+            marginalContribution: (soloFare * 0.35).roundToDouble(),
+            shapleyFairShare: (soloFare * 0.60).roundToDouble(),
+          ),
+      ],
+    );
+
+    await _historyRepository.saveReceipt(receipt);
+    final updatedHistory = [
+      receipt,
+      ...state.tripHistory.where((r) => r.receiptId != receipt.receiptId),
+    ];
+
+    emit(state.copyWith(
+      status: PassengerBookingStatus.tripCompleted,
+      activeReceipt: receipt,
+      tripHistory: updatedHistory,
+      clearActiveTrip: true,
+      clearActiveOffer: true,
+    ));
+  }
+
+  void dismissReceipt() {
+    emit(state.copyWith(
+      status: PassengerBookingStatus.planning,
+      clearActiveReceipt: true,
+      clearActiveTrip: true,
+      clearActiveOffer: true,
     ));
   }
 

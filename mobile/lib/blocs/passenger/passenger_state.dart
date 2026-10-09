@@ -3,12 +3,14 @@ import 'package:ridepool_app/core/route_estimator.dart';
 import 'package:ridepool_app/data/models/active_trip.dart';
 import 'package:ridepool_app/data/models/pooled_ride_offer.dart';
 import 'package:ridepool_app/data/models/pune_location.dart';
+import 'package:ridepool_app/data/models/trip_receipt.dart';
 
 enum PassengerBookingStatus {
   planning,
   batchWaiting,
   offerReceived,
   tripActive,
+  tripCompleted,
 }
 
 class PassengerState extends Equatable {
@@ -23,6 +25,9 @@ class PassengerState extends Equatable {
     this.activeOffer,
     this.offerExpirySeconds = 20,
     this.activeTrip,
+    this.activeReceipt,
+    this.tripHistory = const [],
+    this.isViewingHistory = false,
   });
 
   final PuneLocation? pickup;
@@ -35,6 +40,9 @@ class PassengerState extends Equatable {
   final PooledRideOffer? activeOffer;
   final int offerExpirySeconds;
   final ActiveTrip? activeTrip;
+  final TripReceipt? activeReceipt;
+  final List<TripReceipt> tripHistory;
+  final bool isViewingHistory;
 
   PassengerState copyWith({
     PuneLocation? pickup,
@@ -49,6 +57,10 @@ class PassengerState extends Equatable {
     int? offerExpirySeconds,
     ActiveTrip? activeTrip,
     bool clearActiveTrip = false,
+    TripReceipt? activeReceipt,
+    bool clearActiveReceipt = false,
+    List<TripReceipt>? tripHistory,
+    bool? isViewingHistory,
   }) {
     return PassengerState(
       pickup: pickup ?? this.pickup,
@@ -62,6 +74,10 @@ class PassengerState extends Equatable {
       activeOffer: clearActiveOffer ? null : (activeOffer ?? this.activeOffer),
       offerExpirySeconds: offerExpirySeconds ?? this.offerExpirySeconds,
       activeTrip: clearActiveTrip ? null : (activeTrip ?? this.activeTrip),
+      activeReceipt:
+          clearActiveReceipt ? null : (activeReceipt ?? this.activeReceipt),
+      tripHistory: tripHistory ?? this.tripHistory,
+      isViewingHistory: isViewingHistory ?? this.isViewingHistory,
     );
   }
 
@@ -77,5 +93,8 @@ class PassengerState extends Equatable {
         activeOffer,
         offerExpirySeconds,
         activeTrip,
+        activeReceipt,
+        tripHistory,
+        isViewingHistory,
       ];
 }

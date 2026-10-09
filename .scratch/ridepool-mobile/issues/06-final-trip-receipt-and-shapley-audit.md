@@ -5,11 +5,11 @@ Upon reaching the destination, transition the passenger to a comprehensive fare 
 
 **Blocked by:** 05: Live Trip Tracking & Mid-Trip Join Consent
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Destination arrival triggers the final trip completion screen.
-- [ ] Explainable fare receipt displays solo fare, shared discount, final charge, and carbon savings metrics.
-- [ ] Expandable coalition table shows the marginal contribution and Shapley cost allocation for each passenger in the pool.
-- [ ] Completed trips are saved in local storage (shared_preferences / sqlite) for offline review.
-- [ ] Trip history screen displays past rides with expandable receipts.
-- [ ] Tests verify receipt calculation displays, local persistence, and trip history list rendering.
+- [x] Destination arrival triggers the final trip completion screen.
+- [x] Explainable fare receipt displays solo fare, shared discount, final charge, and carbon savings metrics.
+- [x] Expandable coalition table shows the marginal contribution and Shapley cost allocation for each passenger in the pool.
+- [x] Completed trips are saved in local storage (shared_preferences / sqlite) for offline review.
+- [x] Trip history screen displays past rides with expandable receipts.
+- [x] Tests verify receipt calculation displays, local persistence, and trip history list rendering.
