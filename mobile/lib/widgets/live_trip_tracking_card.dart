@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ridepool_app/core/theme.dart';
 import 'package:ridepool_app/data/models/active_trip.dart';
 import 'package:ridepool_app/widgets/detour_guarantee_badge.dart';
+import 'package:ridepool_app/widgets/pickup_otp_card.dart';
 import 'package:ridepool_app/widgets/pill_button.dart';
 import 'package:ridepool_app/widgets/trip_progression_bar.dart';
 import 'package:ridepool_app/widgets/uber_card.dart';
@@ -94,6 +95,14 @@ class LiveTripTrackingCard extends StatelessWidget {
             ],
           ),
         ),
+
+        if (trip.isUserPickupPending) ...[
+          const SizedBox(height: UberSpacing.sm),
+          PickupOtpCard(
+            key: const Key('passenger_pickup_otp_card'),
+            otpCode: trip.pickupOtp,
+          ),
+        ],
 
         const SizedBox(height: UberSpacing.sm),
 

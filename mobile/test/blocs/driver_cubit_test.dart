@@ -31,9 +31,25 @@ void main() {
       expect(state.isCabinFull, isFalse);
     });
 
-    test('confirmPickup increments cabin occupancy and assigns seats', () {
+    test('confirmPickup without OTP verification is ignored and does not advance stop', () {
       expect(driverCubit.state.currentOccupancy, equals(0));
       expect(driverCubit.state.currentStop?.isPickup, isTrue);
+      expect(driverCubit.state.isCurrentStopVerified, isFalse);
+
+      driverCubit.confirmPickup();
+
+      // Stop should NOT advance because OTP was not verified
+      expect(driverCubit.state.currentStopIndex, equals(0));
+      expect(driverCubit.state.currentOccupancy, equals(0));
+      expect(driverCubit.state.stops[0].status, equals(DriverStopStatus.current));
+    });
+
+    test('confirmPickup increments cabin occupancy and assigns seats when verified', () {
+      expect(driverCubit.state.currentOccupancy, equals(0));
+      expect(driverCubit.state.currentStop?.isPickup, isTrue);
+
+      driverCubit.bypassOtp();
+      expect(driverCubit.state.isCurrentStopVerified, isTrue);
 
       driverCubit.confirmPickup();
 
@@ -54,10 +70,12 @@ void main() {
 
     test('confirmPickup for second stop increases occupancy correctly', () {
       // Pick up Aakash (1 seat)
+      driverCubit.bypassOtp();
       driverCubit.confirmPickup();
       expect(driverCubit.state.currentOccupancy, equals(1));
 
       // Pick up Pooja (2 seats)
+      driverCubit.bypassOtp();
       driverCubit.confirmPickup();
       final state = driverCubit.state;
       expect(state.currentOccupancy, equals(3));
@@ -72,8 +90,10 @@ void main() {
 
     test('confirmDropoff decrements cabin occupancy and frees seats', () {
       // Pick up Aakash (1)
+      driverCubit.bypassOtp();
       driverCubit.confirmPickup();
       // Pick up Pooja (2)
+      driverCubit.bypassOtp();
       driverCubit.confirmPickup();
       expect(driverCubit.state.currentOccupancy, equals(3));
 
@@ -92,8 +112,10 @@ void main() {
 
     test('completing all stops transitions shift to routeCompleted', () {
       // 1. Pickup Aakash (1)
+      driverCubit.bypassOtp();
       driverCubit.confirmPickup();
       // 2. Pickup Pooja (2)
+      driverCubit.bypassOtp();
       driverCubit.confirmPickup();
       // 3. Dropoff Aakash (1)
       driverCubit.confirmDropoff();
@@ -110,7 +132,9 @@ void main() {
     });
 
     test('resetRoute resets stops, index, and occupancy back to initial state', () {
+      driverCubit.bypassOtp();
       driverCubit.confirmPickup();
+      driverCubit.bypassOtp();
       driverCubit.confirmPickup();
       expect(driverCubit.state.currentOccupancy, equals(3));
 
@@ -122,6 +146,86 @@ void main() {
       expect(state.stops.first.status, equals(DriverStopStatus.current));
       expect(state.shiftStatus, equals(DriverShiftStatus.online));
       expect(state.cabinSeats.every((s) => !s.isOccupied), isTrue);
+    });
+
+    group('OTP Entry Keypad, Verification & Stop Lockout', () {
+      test('enterOtpDigit appends digits and deletes correctly', () {
+        expect(driverCubit.state.enteredOtp, isEmpty);
+
+        driverCubit.enterOtpDigit('4');
+        driverCubit.enterOtpDigit('8');
+        expect(driverCubit.state.enteredOtp, equals('48'));
+
+        driverCubit.deleteOtpDigit();
+        expect(driverCubit.state.enteredOtp, equals('4'));
+
+        driverCubit.clearOtp();
+        expect(driverCubit.state.enteredOtp, isEmpty);
+      });
+
+      test('entering 4th correct digit auto-triggers successful verification and shifts seat ledger', () {
+        // Stop 1 expected code is #4821
+        expect(driverCubit.state.seatLedger?.reserved, equals(3));
+        expect(driverCubit.state.seatLedger?.occupied, equals(0));
+
+        driverCubit.enterOtpDigit('4');
+        driverCubit.enterOtpDigit('8');
+        driverCubit.enterOtpDigit('2');
+        driverCubit.enterOtpDigit('1');
+
+        expect(driverCubit.state.isCurrentStopVerified, isTrue);
+        expect(driverCubit.state.isStopLocked, isFalse);
+        expect(driverCubit.state.otpErrorMessage, isNull);
+        // SeatLedger transitioned pax-1 from reserved to occupied!
+        expect(driverCubit.state.seatLedger?.reserved, equals(2));
+        expect(driverCubit.state.seatLedger?.occupied, equals(1));
+      });
+
+      test('entering wrong OTP increments failed attempts and records error message', () {
+        driverCubit.enterOtpDigit('9');
+        driverCubit.enterOtpDigit('9');
+        driverCubit.enterOtpDigit('9');
+        driverCubit.enterOtpDigit('9');
+
+        expect(driverCubit.state.isCurrentStopVerified, isFalse);
+        expect(driverCubit.state.otpFailedAttempts, equals(1));
+        expect(driverCubit.state.isStopLocked, isFalse);
+        expect(driverCubit.state.otpErrorMessage, contains('4 attempts remaining'));
+      });
+
+      test('5 consecutive failed OTP entries locks the stop', () {
+        for (int i = 0; i < 5; i++) {
+          driverCubit.clearOtp();
+          driverCubit.enterOtpDigit('0');
+          driverCubit.enterOtpDigit('0');
+          driverCubit.enterOtpDigit('0');
+          driverCubit.enterOtpDigit('0');
+        }
+
+        expect(driverCubit.state.otpFailedAttempts, equals(5));
+        expect(driverCubit.state.isStopLocked, isTrue);
+        expect(driverCubit.state.otpErrorMessage, contains('Stop locked'));
+
+        // Further entry is blocked while locked
+        driverCubit.enterOtpDigit('4');
+        expect(driverCubit.state.enteredOtp, equals('0000'));
+      });
+
+      test('manualUnlockStop clears lockout and resets failed attempts', () {
+        for (int i = 0; i < 5; i++) {
+          driverCubit.clearOtp();
+          driverCubit.enterOtpDigit('0');
+          driverCubit.enterOtpDigit('0');
+          driverCubit.enterOtpDigit('0');
+          driverCubit.enterOtpDigit('0');
+        }
+        expect(driverCubit.state.isStopLocked, isTrue);
+
+        driverCubit.manualUnlockStop();
+        expect(driverCubit.state.isStopLocked, isFalse);
+        expect(driverCubit.state.otpFailedAttempts, equals(0));
+        expect(driverCubit.state.enteredOtp, isEmpty);
+      });
     });
 
     test('receives mid-trip join proposal and approval inserts stops into driver manifest', () {

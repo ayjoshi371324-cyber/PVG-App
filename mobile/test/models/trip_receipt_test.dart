@@ -103,6 +103,10 @@ void main() {
       expect(reconstituted.savings, equals(109.0));
       expect(reconstituted.coalitionAudits.length, equals(3));
       expect(reconstituted.environmentalImpact.vehicleKmSaved, equals(8.4));
+      expect(reconstituted.effectiveFarePaise, equals(17100));
+      expect(reconstituted.effectiveDriverPayoutPaise, equals(14535));
+      expect(reconstituted.paymentStatus, equals(PaymentStatus.completed));
+      expect(reconstituted.environmentalImpact.formattedFuelSaved, contains('fuel saved'));
     });
   });
 }

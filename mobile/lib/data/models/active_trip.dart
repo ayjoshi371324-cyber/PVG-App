@@ -280,6 +280,7 @@ class ActiveTrip extends Equatable {
     required this.vehiclePosition,
     required this.currentDetourPercentage,
     this.pendingJoinRequest,
+    this.pickupOtp = '4821',
   });
 
   final String tripId;
@@ -289,8 +290,16 @@ class ActiveTrip extends Equatable {
   final LatLng vehiclePosition;
   final double currentDetourPercentage;
   final MidTripJoinRequest? pendingJoinRequest;
+  final String pickupOtp;
 
   bool get isCompleted => currentWaypointIndex >= waypoints.length;
+
+  bool get isUserPickupPending {
+    final userPickupIndex =
+        waypoints.indexWhere((w) => w.isUser && w.type == WaypointType.pickup);
+    if (userPickupIndex == -1) return false;
+    return currentWaypointIndex <= userPickupIndex;
+  }
 
   double get progress => waypoints.isEmpty
       ? 0.0
@@ -304,6 +313,7 @@ class ActiveTrip extends Equatable {
   factory ActiveTrip.fromOffer({
     required PooledRideOffer offer,
     LatLng? vehiclePosition,
+    String? pickupOtp,
   }) {
     // Scaffold multi-stop pooled manifest matching Pune corridor
     final waypoints = <TripWaypoint>[
@@ -390,6 +400,7 @@ class ActiveTrip extends Equatable {
       currentWaypointIndex: 0,
       vehiclePosition: initialPos,
       currentDetourPercentage: offer.detourPercentage,
+      pickupOtp: pickupOtp ?? '4821',
     );
   }
 
@@ -500,6 +511,7 @@ class ActiveTrip extends Equatable {
     double? currentDetourPercentage,
     MidTripJoinRequest? pendingJoinRequest,
     bool clearPendingJoinRequest = false,
+    String? pickupOtp,
   }) {
     return ActiveTrip(
       tripId: tripId ?? this.tripId,
@@ -512,6 +524,7 @@ class ActiveTrip extends Equatable {
       pendingJoinRequest: clearPendingJoinRequest
           ? null
           : (pendingJoinRequest ?? this.pendingJoinRequest),
+      pickupOtp: pickupOtp ?? this.pickupOtp,
     );
   }
 
@@ -524,5 +537,6 @@ class ActiveTrip extends Equatable {
         vehiclePosition,
         currentDetourPercentage,
         pendingJoinRequest,
+        pickupOtp,
       ];
 }

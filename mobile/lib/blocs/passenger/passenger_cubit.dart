@@ -491,6 +491,9 @@ class PassengerCubit extends Cubit<PassengerState> {
 
     final kmSaved = (distanceKm * 0.6).clamp(1.0, 50.0);
     final co2Saved = kmSaved * 0.12;
+    final fuelSaved = (kmSaved / 15.0 * 100).round() / 100.0;
+    final farePaise = (finalFare * 100).round();
+    final driverPayoutPaise = ((finalFare * 0.85) * 100).round();
 
     final receipt = TripReceipt(
       receiptId: 'rcpt-${DateTime.now().millisecondsSinceEpoch}',
@@ -503,10 +506,14 @@ class PassengerCubit extends Cubit<PassengerState> {
       completedAt: DateTime.now(),
       soloReferenceFare: soloFare,
       finalPayableFare: finalFare,
+      farePaise: farePaise,
+      driverPayoutPaise: driverPayoutPaise,
+      paymentStatus: PaymentStatus.unpaid,
       finalDetourPercentage: detour,
       environmentalImpact: EnvironmentalImpact(
         vehicleKmSaved: (kmSaved * 10).round() / 10.0,
         co2SavedKg: (co2Saved * 100).round() / 100.0,
+        fuelSavedLitres: fuelSaved,
       ),
       coalitionAudits: [
         CoalitionMemberAudit(
@@ -539,6 +546,19 @@ class PassengerCubit extends Cubit<PassengerState> {
       clearActiveTrip: true,
       clearActiveOffer: true,
       clearMatchingOutcome: true,
+    ));
+  }
+
+  Future<void> settleReceiptPayment(TripReceipt updatedReceipt) async {
+    await _historyRepository.saveReceipt(updatedReceipt);
+    final updatedHistory = [
+      updatedReceipt,
+      ...state.tripHistory.where((r) => r.receiptId != updatedReceipt.receiptId),
+    ];
+
+    emit(state.copyWith(
+      activeReceipt: updatedReceipt,
+      tripHistory: updatedHistory,
     ));
   }
 

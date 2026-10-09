@@ -52,6 +52,13 @@ void main() {
     });
 
     testWidgets('walks through entire stop sequence from boarding to dropoff and completion', (tester) async {
+      tester.view.physicalSize = const Size(1000, 1800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
       await tester.pumpWidget(createWidgetUnderTest());
       await tester.pumpAndSettle();
 
@@ -60,7 +67,20 @@ void main() {
       expect(find.text('Next Stop: Pickup Aakash S.'), findsOneWidget);
       expect(find.text('Confirm Passenger Boarded'), findsOneWidget);
 
-      // Tap Confirm Passenger Boarded (Aakash)
+      // Boarding button is disabled initially before OTP verification
+      await tester.ensureVisible(find.text('Confirm Passenger Boarded'));
+      await tester.tap(find.text('Confirm Passenger Boarded'));
+      await tester.pumpAndSettle();
+      expect(driverCubit.state.currentStopIndex, equals(0));
+
+      // Tap Bypass OTP (Demo) to verify
+      await tester.ensureVisible(find.textContaining('Bypass OTP'));
+      await tester.tap(find.textContaining('Bypass OTP'));
+      await tester.pumpAndSettle();
+      expect(driverCubit.state.isCurrentStopVerified, isTrue);
+
+      // Now Confirm Passenger Boarded (Aakash)
+      await tester.ensureVisible(find.text('Confirm Passenger Boarded'));
       await tester.tap(find.text('Confirm Passenger Boarded'));
       await tester.pumpAndSettle();
 
@@ -69,7 +89,13 @@ void main() {
       expect(find.text('Next Stop: Pickup Pooja P.'), findsOneWidget);
       expect(find.text('#9104'), findsAtLeastNWidgets(1));
 
+      // Tap Bypass OTP (Demo) for Pooja
+      await tester.ensureVisible(find.textContaining('Bypass OTP'));
+      await tester.tap(find.textContaining('Bypass OTP'));
+      await tester.pumpAndSettle();
+
       // Tap Confirm Passenger Boarded (Pooja)
+      await tester.ensureVisible(find.text('Confirm Passenger Boarded'));
       await tester.tap(find.text('Confirm Passenger Boarded'));
       await tester.pumpAndSettle();
 
@@ -79,6 +105,7 @@ void main() {
       expect(find.text('Confirm Passenger Dropped Off'), findsOneWidget);
 
       // Tap Confirm Passenger Dropped Off (Aakash)
+      await tester.ensureVisible(find.text('Confirm Passenger Dropped Off'));
       await tester.tap(find.text('Confirm Passenger Dropped Off'));
       await tester.pumpAndSettle();
 
@@ -88,6 +115,7 @@ void main() {
       expect(find.text('Confirm Passenger Dropped Off'), findsOneWidget);
 
       // Tap Confirm Passenger Dropped Off (Pooja)
+      await tester.ensureVisible(find.text('Confirm Passenger Dropped Off'));
       await tester.tap(find.text('Confirm Passenger Dropped Off'));
       await tester.pumpAndSettle();
 
@@ -98,12 +126,46 @@ void main() {
       expect(find.text('Reset Demo Route'), findsOneWidget);
 
       // Tap Reset Demo Route
+      await tester.ensureVisible(find.text('Reset Demo Route'));
       await tester.tap(find.text('Reset Demo Route'));
       await tester.pumpAndSettle();
 
       // Reverts back to initial Stop 1
       expect(driverCubit.state.currentStopIndex, equals(0));
       expect(find.text('Next Stop: Pickup Aakash S.'), findsOneWidget);
+    });
+
+    testWidgets('interactively enters OTP digits on keypad and confirms boarding', (tester) async {
+      tester.view.physicalSize = const Size(1000, 1800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(createWidgetUnderTest());
+      await tester.pumpAndSettle();
+
+      // Stop 1 code is #4821
+      // Enter 4, 8, 2, 1 on keypad
+      await tester.ensureVisible(find.text('4'));
+      await tester.tap(find.text('4'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('8'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('2'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('1'));
+      await tester.pumpAndSettle();
+
+      expect(driverCubit.state.isCurrentStopVerified, isTrue);
+      expect(find.textContaining('OTP Verified'), findsOneWidget);
+
+      // Boarding enabled
+      await tester.ensureVisible(find.text('Confirm Passenger Boarded'));
+      await tester.tap(find.text('Confirm Passenger Boarded'));
+      await tester.pumpAndSettle();
+      expect(driverCubit.state.currentStopIndex, equals(1));
     });
   });
 }

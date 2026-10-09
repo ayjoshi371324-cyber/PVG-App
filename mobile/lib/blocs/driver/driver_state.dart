@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:ridepool_app/core/engine/seat_ledger.dart';
 import 'package:ridepool_app/data/models/driver_manifest.dart';
 
 enum DriverShiftStatus {
@@ -17,6 +18,12 @@ class DriverState extends Equatable {
     this.currentOccupancy = 0,
     this.pendingPickupStop,
     this.pendingDropoffStop,
+    this.enteredOtp = '',
+    this.otpFailedAttempts = 0,
+    this.isStopLocked = false,
+    this.isCurrentStopVerified = false,
+    this.otpErrorMessage,
+    this.seatLedger,
   });
 
   final DriverVehicle vehicle;
@@ -27,6 +34,12 @@ class DriverState extends Equatable {
   final int currentOccupancy;
   final DriverStop? pendingPickupStop;
   final DriverStop? pendingDropoffStop;
+  final String enteredOtp;
+  final int otpFailedAttempts;
+  final bool isStopLocked;
+  final bool isCurrentStopVerified;
+  final String? otpErrorMessage;
+  final SeatLedger? seatLedger;
 
   DriverStop? get currentStop =>
       (currentStopIndex >= 0 && currentStopIndex < stops.length)
@@ -61,6 +74,13 @@ class DriverState extends Equatable {
     bool clearPendingPickupStop = false,
     DriverStop? pendingDropoffStop,
     bool clearPendingDropoffStop = false,
+    String? enteredOtp,
+    int? otpFailedAttempts,
+    bool? isStopLocked,
+    bool? isCurrentStopVerified,
+    String? otpErrorMessage,
+    bool clearOtpErrorMessage = false,
+    SeatLedger? seatLedger,
   }) {
     return DriverState(
       vehicle: vehicle ?? this.vehicle,
@@ -75,6 +95,15 @@ class DriverState extends Equatable {
       pendingDropoffStop: clearPendingDropoffStop
           ? null
           : (pendingDropoffStop ?? this.pendingDropoffStop),
+      enteredOtp: enteredOtp ?? this.enteredOtp,
+      otpFailedAttempts: otpFailedAttempts ?? this.otpFailedAttempts,
+      isStopLocked: isStopLocked ?? this.isStopLocked,
+      isCurrentStopVerified:
+          isCurrentStopVerified ?? this.isCurrentStopVerified,
+      otpErrorMessage: clearOtpErrorMessage
+          ? null
+          : (otpErrorMessage ?? this.otpErrorMessage),
+      seatLedger: seatLedger ?? this.seatLedger,
     );
   }
 
@@ -88,5 +117,12 @@ class DriverState extends Equatable {
         currentOccupancy,
         pendingPickupStop,
         pendingDropoffStop,
+        enteredOtp,
+        otpFailedAttempts,
+        isStopLocked,
+        isCurrentStopVerified,
+        otpErrorMessage,
+        seatLedger,
       ];
 }
+

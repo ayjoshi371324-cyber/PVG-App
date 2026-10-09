@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:ridepool_app/core/theme.dart';
 import 'package:ridepool_app/data/models/trip_receipt.dart';
 import 'package:ridepool_app/widgets/pill_button.dart';
+import 'package:ridepool_app/widgets/razorpay_checkout_sheet.dart';
 import 'package:ridepool_app/widgets/uber_card.dart';
 
 /// Comprehensive Uber-styled final trip receipt screen displaying:
 /// - Hero final payable fare & Shapley pool discount
+/// - Exact paise Shapley settlement & driver payout breakdown
 /// - Route endpoints and completed time
 /// - Driver & vehicle details
-/// - Environmental impact (CO2 & vehicle-km reduction)
+/// - Environmental impact (CO2, fuel saved & vehicle-km reduction)
+/// - Settle payment via Razorpay test mode checkout sheet
 /// - Expandable Shapley coalition audit table
 class TripReceiptCard extends StatefulWidget {
   const TripReceiptCard({
@@ -16,11 +19,13 @@ class TripReceiptCard extends StatefulWidget {
     required this.receipt,
     required this.onDone,
     this.initiallyExpanded = false,
+    this.onPaymentSuccess,
   });
 
   final TripReceipt receipt;
   final VoidCallback onDone;
   final bool initiallyExpanded;
+  final ValueChanged<TripReceipt>? onPaymentSuccess;
 
   @override
   State<TripReceiptCard> createState() => _TripReceiptCardState();
@@ -28,11 +33,40 @@ class TripReceiptCard extends StatefulWidget {
 
 class _TripReceiptCardState extends State<TripReceiptCard> {
   late bool _isAuditExpanded;
+  late TripReceipt _receipt;
 
   @override
   void initState() {
     super.initState();
     _isAuditExpanded = widget.initiallyExpanded;
+    _receipt = widget.receipt;
+  }
+
+  @override
+  void didUpdateWidget(TripReceiptCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.receipt != oldWidget.receipt) {
+      _receipt = widget.receipt;
+    }
+  }
+
+  void _openRazorpaySheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => RazorpayCheckoutSheet(
+        receipt: _receipt,
+        onCancel: () => Navigator.of(ctx).pop(),
+        onPaymentComplete: (updated) {
+          Navigator.of(ctx).pop();
+          setState(() {
+            _receipt = updated;
+          });
+          widget.onPaymentSuccess?.call(updated);
+        },
+      ),
+    );
   }
 
   String _formatDateTime(DateTime dt) {
@@ -49,7 +83,7 @@ class _TripReceiptCardState extends State<TripReceiptCard> {
 
   @override
   Widget build(BuildContext context) {
-    final receipt = widget.receipt;
+    final receipt = _receipt;
     final finalRounded = receipt.finalPayableFare.round();
     final soloRounded = receipt.soloReferenceFare.round();
     final savingsRounded = receipt.savings.round();
@@ -152,6 +186,15 @@ class _TripReceiptCardState extends State<TripReceiptCard> {
                     fontWeight: FontWeight.w700,
                     color: UberColors.accentGreen,
                   ),
+                ),
+              ),
+              const SizedBox(height: UberSpacing.xs),
+              Text(
+                'Exact Shapley: ${receipt.effectiveFarePaise} paise • Driver Payout: ₹${receipt.driverPayoutRupees.toStringAsFixed(2)} (${receipt.effectiveDriverPayoutPaise} paise)',
+                style: UberTypography.caption.copyWith(
+                  color: UberColors.body,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
                 ),
               ),
             ],
@@ -269,7 +312,7 @@ class _TripReceiptCardState extends State<TripReceiptCard> {
                       ),
                     ),
                     Text(
-                      '${receipt.environmentalImpact.vehicleKmSaved.toStringAsFixed(1)} km pooled',
+                      '${receipt.environmentalImpact.formattedFuelSaved} • ${receipt.environmentalImpact.vehicleKmSaved.toStringAsFixed(1)} km',
                       style: UberTypography.caption.copyWith(
                         color: UberColors.body,
                       ),
@@ -311,6 +354,69 @@ class _TripReceiptCardState extends State<TripReceiptCard> {
               ),
             ),
           ],
+        ),
+
+        const SizedBox(height: UberSpacing.sm),
+
+        // Razorpay Payment Status & Settlement Card
+        UberCard(
+          variant: UberCardVariant.elevated,
+          padding: const EdgeInsets.all(UberSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        receipt.isPaid
+                            ? Icons.check_circle_rounded
+                            : Icons.pending_actions_rounded,
+                        color: receipt.isPaid
+                            ? UberColors.accentGreen
+                            : UberColors.accentOrange,
+                        size: 20,
+                      ),
+                      const SizedBox(width: UberSpacing.xs),
+                      Text(
+                        receipt.isPaid ? 'Payment Settled' : 'Payment Pending',
+                        style: UberTypography.bodyMdStrong.copyWith(
+                          color: receipt.isPaid
+                              ? UberColors.accentGreen
+                              : UberColors.accentOrange,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    '₹$finalRounded',
+                    style: UberTypography.bodyMdStrong,
+                  ),
+                ],
+              ),
+              const SizedBox(height: UberSpacing.xxs),
+              Text(
+                receipt.isPaid
+                    ? 'Paid via ${receipt.paymentMethod ?? "Razorpay"} • ID: ${receipt.paymentTransactionId ?? "pay_test_completed"}'
+                    : 'Settle via UPI, Card, Netbanking, or simulated payment link in Razorpay test mode.',
+                style: UberTypography.caption.copyWith(color: UberColors.body),
+              ),
+              if (!receipt.isPaid) ...[
+                const SizedBox(height: UberSpacing.sm),
+                PillButton(
+                  key: const Key('pay_with_razorpay_button'),
+                  label: 'Pay ₹$finalRounded with Razorpay',
+                  variant: PillButtonVariant.primary,
+                  size: PillButtonSize.large,
+                  fullWidth: true,
+                  icon: Icons.payment_rounded,
+                  onPressed: _openRazorpaySheet,
+                ),
+              ],
+            ],
+          ),
         ),
 
         const SizedBox(height: UberSpacing.sm),

@@ -73,6 +73,9 @@ class _PassengerHomeContent extends StatelessWidget {
         subtitle: 'Arrived safely at destination',
         child: TripReceiptCard(
           receipt: state.activeReceipt!,
+          onPaymentSuccess: (updated) {
+            context.read<PassengerCubit>().settleReceiptPayment(updated);
+          },
           onDone: () {
             context.read<PassengerCubit>().dismissReceipt();
           },

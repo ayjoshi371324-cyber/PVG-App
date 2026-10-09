@@ -9,6 +9,7 @@ import 'package:ridepool_app/data/models/driver_manifest.dart';
 import 'package:ridepool_app/widgets/bottom_drawer_sheet.dart';
 import 'package:ridepool_app/widgets/cabin_occupancy_gauge.dart';
 import 'package:ridepool_app/widgets/metric_badge.dart';
+import 'package:ridepool_app/widgets/otp_keypad_widget.dart';
 import 'package:ridepool_app/widgets/pill_button.dart';
 import 'package:ridepool_app/widgets/pune_map_widget.dart';
 import 'package:ridepool_app/widgets/turn_by_turn_manifest_card.dart';
@@ -238,6 +239,25 @@ class _DriverHomeContent extends StatelessWidget {
                                           ),
                                         ],
                                       ),
+                                      if (currentStop.isPickup) ...[
+                                        const SizedBox(height: UberSpacing.sm),
+                                        OtpKeypadWidget(
+                                          enteredOtp: state.enteredOtp,
+                                          isVerified: state.isCurrentStopVerified,
+                                          isLocked: state.isStopLocked,
+                                          errorMessage: state.otpErrorMessage,
+                                          onDigitPressed: (digit) =>
+                                              context.read<DriverCubit>().enterOtpDigit(digit),
+                                          onDeletePressed: () =>
+                                              context.read<DriverCubit>().deleteOtpDigit(),
+                                          onClearPressed: () =>
+                                              context.read<DriverCubit>().clearOtp(),
+                                          onBypassPressed: () =>
+                                              context.read<DriverCubit>().bypassOtp(),
+                                          onManualOverride: () =>
+                                              context.read<DriverCubit>().manualUnlockStop(),
+                                        ),
+                                      ],
                                       const SizedBox(height: UberSpacing.md),
                                       PillButton(
                                         label: currentStop.isPickup
@@ -245,12 +265,17 @@ class _DriverHomeContent extends StatelessWidget {
                                             : 'Confirm Passenger Dropped Off',
                                         size: PillButtonSize.large,
                                         fullWidth: true,
+                                        variant: (currentStop.isDropoff || state.isCurrentStopVerified)
+                                            ? PillButtonVariant.primary
+                                            : PillButtonVariant.secondary,
                                         icon: currentStop.isPickup
                                             ? Icons.person_add_alt_1_rounded
                                             : Icons.check_circle_rounded,
-                                        onPressed: () {
-                                          context.read<DriverCubit>().confirmCurrentStop();
-                                        },
+                                        onPressed: (currentStop.isDropoff || state.isCurrentStopVerified)
+                                            ? () {
+                                                context.read<DriverCubit>().confirmCurrentStop();
+                                              }
+                                            : null,
                                       ),
                                     ],
                                   ),

@@ -119,7 +119,14 @@ class PillButton extends StatelessWidget {
           Icon(icon, size: iconSize, color: foregroundColor),
           const SizedBox(width: UberSpacing.sm),
         ],
-        Text(label, style: textStyle),
+        Flexible(
+          child: Text(
+            label,
+            style: textStyle,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+        ),
       ],
     );
 
