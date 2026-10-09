@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:ridepool_app/blocs/passenger/passenger_state.dart';
+import 'package:ridepool_app/core/engine/batch_matching_engine.dart';
 import 'package:ridepool_app/core/route_estimator.dart';
 import 'package:ridepool_app/data/models/active_trip.dart';
 import 'package:ridepool_app/data/models/pooled_ride_offer.dart';
 import 'package:ridepool_app/data/models/pune_location.dart';
 import 'package:ridepool_app/data/models/trip_receipt.dart';
+import 'package:ridepool_app/data/models/vehicle_tier.dart';
 import 'package:ridepool_app/repositories/trip_history_repository.dart';
 
 class PassengerCubit extends Cubit<PassengerState> {
@@ -14,16 +16,19 @@ class PassengerCubit extends Cubit<PassengerState> {
     TripHistoryRepository? historyRepository,
     PuneLocation? initialPickup = PuneLandmarks.kothrud,
     PuneLocation? initialDropoff = PuneLandmarks.hinjawadiPhase1,
+    VehicleTier initialTier = VehicleTier.auto,
   })  : _estimator = estimator,
         _historyRepository =
             historyRepository ?? LocalTripHistoryRepository(),
         super(PassengerState(
           pickup: initialPickup,
           dropoff: initialDropoff,
+          selectedTier: initialTier,
           estimate: (initialPickup != null && initialDropoff != null)
               ? estimator.estimateRoute(
                   pickup: initialPickup,
                   dropoff: initialDropoff,
+                  rateMultiplier: initialTier.rateMultiplier,
                 )
               : null,
         )) {
@@ -35,6 +40,74 @@ class PassengerCubit extends Cubit<PassengerState> {
   Timer? _countdownTimer;
   Timer? _offerExpiryTimer;
 
+  static final List<BatchVehicle> _defaultFleet = [
+    BatchVehicle(
+      id: 'v-auto-1',
+      model: 'Bajaj RE EV',
+      licensePlate: 'MH-12-AU-1001',
+      driverName: 'Santosh T.',
+      driverRating: 4.85,
+      tier: VehicleTier.auto,
+      currentLocation: PuneLandmarks.kothrud,
+    ),
+    BatchVehicle(
+      id: 'v-car-1',
+      model: 'Tata Tigor EV',
+      licensePlate: 'MH-12-RN-4821',
+      driverName: 'Suresh K.',
+      driverRating: 4.90,
+      tier: VehicleTier.car,
+      currentLocation: PuneLandmarks.kothrud,
+    ),
+    BatchVehicle(
+      id: 'v-carxl-1',
+      model: 'Toyota Innova Hycross',
+      licensePlate: 'MH-12-XL-9009',
+      driverName: 'Mahesh P.',
+      driverRating: 4.95,
+      tier: VehicleTier.carXl,
+      currentLocation: PuneLandmarks.kothrud,
+    ),
+  ];
+
+  List<BatchRideRequest> _defaultSyntheticQueue(
+    VehicleTier tier,
+    PuneLocation pickup,
+    PuneLocation dropoff,
+  ) {
+    const bavdhan = PuneLocation(
+      name: 'Bavdhan Flyover',
+      latitude: 18.5126,
+      longitude: 73.7712,
+      landmarkNote: 'NDA Road Bypass',
+    );
+    const baner = PuneLocation(
+      name: 'Baner High Street',
+      latitude: 18.5590,
+      longitude: 73.7788,
+      landmarkNote: 'Baner Road Corridor',
+    );
+
+    return [
+      BatchRideRequest(
+        id: 'req-copassenger-1',
+        passengerName: 'Priya',
+        pickup: bavdhan,
+        dropoff: dropoff,
+        partySize: 1,
+        tier: tier,
+      ),
+      BatchRideRequest(
+        id: 'req-copassenger-2',
+        passengerName: 'Rohan',
+        pickup: baner,
+        dropoff: dropoff,
+        partySize: 1,
+        tier: tier,
+      ),
+    ];
+  }
+
   Future<void> loadTripHistory() async {
     final history = await _historyRepository.getTripHistory();
     emit(state.copyWith(tripHistory: history));
@@ -42,6 +115,25 @@ class PassengerCubit extends Cubit<PassengerState> {
 
   void toggleTripHistory(bool show) {
     emit(state.copyWith(isViewingHistory: show));
+  }
+
+  void setVehicleTier(VehicleTier tier) {
+    var partySize = state.partySize;
+    if (partySize > tier.capacity) {
+      partySize = tier.capacity;
+    }
+
+    final newEstimate = _recalculateEstimate(
+      pickup: state.pickup,
+      dropoff: state.dropoff,
+      tier: tier,
+    );
+
+    emit(state.copyWith(
+      selectedTier: tier,
+      partySize: partySize,
+      estimate: newEstimate,
+    ));
   }
 
   void setPickup(PuneLocation location) {
@@ -52,6 +144,7 @@ class PassengerCubit extends Cubit<PassengerState> {
       newEstimate = _estimator.estimateRoute(
         pickup: location,
         dropoff: newDropoff,
+        rateMultiplier: state.selectedTier.rateMultiplier,
       );
     }
 
@@ -69,6 +162,7 @@ class PassengerCubit extends Cubit<PassengerState> {
       newEstimate = _estimator.estimateRoute(
         pickup: currentPickup,
         dropoff: location,
+        rateMultiplier: state.selectedTier.rateMultiplier,
       );
     }
 
@@ -78,14 +172,38 @@ class PassengerCubit extends Cubit<PassengerState> {
     ));
   }
 
-  void setPartySize(int seats) {
-    if (seats < 1 || seats > 3) return;
-    emit(state.copyWith(partySize: seats));
+  void setPartySize(int seats, {bool allowTierUpgrade = false}) {
+    if (seats < 1 || seats > 6) return;
+    var tier = state.selectedTier;
+
+    if (seats > tier.capacity) {
+      if (allowTierUpgrade) {
+        if (seats <= VehicleTier.car.capacity) {
+          tier = VehicleTier.car;
+        } else {
+          tier = VehicleTier.carXl;
+        }
+      } else {
+        return;
+      }
+    }
+
+    final newEstimate = _recalculateEstimate(
+      pickup: state.pickup,
+      dropoff: state.dropoff,
+      tier: tier,
+    );
+
+    emit(state.copyWith(
+      partySize: seats,
+      selectedTier: tier,
+      estimate: newEstimate,
+    ));
   }
 
-  void incrementPartySize() {
-    if (state.partySize < 3) {
-      setPartySize(state.partySize + 1);
+  void incrementPartySize({bool allowTierUpgrade = false}) {
+    if (state.partySize < 6) {
+      setPartySize(state.partySize + 1, allowTierUpgrade: allowTierUpgrade);
     }
   }
 
@@ -93,6 +211,11 @@ class PassengerCubit extends Cubit<PassengerState> {
     if (state.partySize > 1) {
       setPartySize(state.partySize - 1);
     }
+  }
+
+  void setBatchWindowSeconds(int seconds) {
+    final clamped = seconds.clamp(15, 90);
+    emit(state.copyWith(batchWindowSeconds: clamped));
   }
 
   void swapLocations() {
@@ -104,6 +227,7 @@ class PassengerCubit extends Cubit<PassengerState> {
     final newEstimate = _estimator.estimateRoute(
       pickup: oldDropoff,
       dropoff: oldPickup,
+      rateMultiplier: state.selectedTier.rateMultiplier,
     );
 
     emit(state.copyWith(
@@ -113,17 +237,25 @@ class PassengerCubit extends Cubit<PassengerState> {
     ));
   }
 
-  void startBatchWaiting({int durationSeconds = 15}) {
+  void startBatchWaiting({
+    int? durationSeconds,
+    List<BatchRideRequest>? syntheticQueue,
+    List<BatchVehicle>? fleet,
+    bool allowSoloFallback = true,
+  }) {
     _countdownTimer?.cancel();
     _offerExpiryTimer?.cancel();
 
+    final totalDuration = durationSeconds ?? state.batchWindowSeconds;
+
     emit(state.copyWith(
       status: PassengerBookingStatus.batchWaiting,
-      countdownSeconds: durationSeconds,
-      totalCountdownSeconds: durationSeconds,
+      countdownSeconds: totalDuration,
+      totalCountdownSeconds: totalDuration,
       clearActiveOffer: true,
       clearActiveTrip: true,
       clearActiveReceipt: true,
+      clearMatchingOutcome: true,
     ));
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -133,11 +265,68 @@ class PassengerCubit extends Cubit<PassengerState> {
         ));
       } else {
         timer.cancel();
-        // Generate an optimized pooled ride offer upon batch matching completion
-        final offer = _generateSampleOffer();
-        receiveOffer(offer);
+        _evaluateBatchMatch(
+          syntheticQueue: syntheticQueue,
+          fleet: fleet,
+          allowSoloFallback: allowSoloFallback,
+        );
       }
     });
+  }
+
+  void _evaluateBatchMatch({
+    List<BatchRideRequest>? syntheticQueue,
+    List<BatchVehicle>? fleet,
+    bool allowSoloFallback = true,
+  }) {
+    final pickup = state.pickup ?? PuneLandmarks.kothrud;
+    final dropoff = state.dropoff ?? PuneLandmarks.hinjawadiPhase1;
+    final tier = state.selectedTier;
+
+    final targetRequest = BatchRideRequest(
+      id: 'req-user-${DateTime.now().millisecondsSinceEpoch}',
+      passengerName: 'You',
+      pickup: pickup,
+      dropoff: dropoff,
+      partySize: state.partySize,
+      tier: tier,
+    );
+
+    final queue = syntheticQueue ?? _defaultSyntheticQueue(tier, pickup, dropoff);
+    final vehicles = fleet ?? _defaultFleet;
+
+    final matcher = CombinatorialBatchMatcher(estimator: _estimator);
+    final outcome = matcher.match(
+      targetRequest: targetRequest,
+      queuedRequests: queue,
+      availableVehicles: vehicles,
+      allowSoloFallback: allowSoloFallback,
+    );
+
+    if (outcome is MatchFoundOutcome) {
+      emit(state.copyWith(matchingOutcome: outcome));
+      receiveOffer(outcome.offer);
+    } else {
+      emit(state.copyWith(
+        status: PassengerBookingStatus.batchOutcome,
+        matchingOutcome: outcome,
+        countdownSeconds: 0,
+      ));
+    }
+  }
+
+  void setMatchingOutcome(BatchMatchingOutcome outcome) {
+    _countdownTimer?.cancel();
+    if (outcome is MatchFoundOutcome) {
+      emit(state.copyWith(matchingOutcome: outcome));
+      receiveOffer(outcome.offer);
+    } else {
+      emit(state.copyWith(
+        status: PassengerBookingStatus.batchOutcome,
+        matchingOutcome: outcome,
+        countdownSeconds: 0,
+      ));
+    }
   }
 
   void cancelBatchWaiting() {
@@ -145,10 +334,11 @@ class PassengerCubit extends Cubit<PassengerState> {
     _offerExpiryTimer?.cancel();
     emit(state.copyWith(
       status: PassengerBookingStatus.planning,
-      countdownSeconds: 15,
+      countdownSeconds: state.batchWindowSeconds,
       clearActiveOffer: true,
       clearActiveTrip: true,
       clearActiveReceipt: true,
+      clearMatchingOutcome: true,
     ));
   }
 
@@ -185,6 +375,7 @@ class PassengerCubit extends Cubit<PassengerState> {
           clearActiveOffer: true,
           clearActiveTrip: true,
           clearActiveReceipt: true,
+          clearMatchingOutcome: true,
           offerExpirySeconds: 20,
         ));
       }
@@ -211,6 +402,50 @@ class PassengerCubit extends Cubit<PassengerState> {
     ));
   }
 
+  void acceptSoloDirectRide(SoloDirectRideOutcome soloOutcome) {
+    final activeTrip = ActiveTrip.fromOffer(
+      offer: PooledRideOffer(
+        offerId: 'offer-solo-${DateTime.now().millisecondsSinceEpoch}',
+        vehicleModel: soloOutcome.vehicle.model,
+        licensePlate: soloOutcome.vehicle.licensePlate,
+        driverName: soloOutcome.vehicle.driverName,
+        driverRating: soloOutcome.vehicle.driverRating,
+        pickup: soloOutcome.request.pickup,
+        dropoff: soloOutcome.request.dropoff,
+        pickupEtaMinutes: 3,
+        dropoffEtaMinutes:
+            _estimator.calculateDurationMinutes(soloOutcome.distanceKm),
+        coPassengersCount: 0,
+        coPassengerLabels: const [],
+        detourPercentage: 0.0,
+        fareBreakdown: ShapleyFareBreakdown(
+          soloFare: soloOutcome.soloFare,
+          sharedFare: soloOutcome.soloFare,
+          coalitionSize: 1,
+          explanation: 'Solo direct ride dispatched at tier rate multiplier.',
+        ),
+      ),
+    );
+
+    emit(state.copyWith(
+      status: PassengerBookingStatus.tripActive,
+      activeTrip: activeTrip,
+      clearActiveOffer: true,
+      clearMatchingOutcome: true,
+      clearActiveReceipt: true,
+    ));
+  }
+
+  void dismissBatchOutcome() {
+    emit(state.copyWith(
+      status: PassengerBookingStatus.planning,
+      clearMatchingOutcome: true,
+      clearActiveOffer: true,
+      clearActiveTrip: true,
+      clearActiveReceipt: true,
+    ));
+  }
+
   void declineOffer() {
     _offerExpiryTimer?.cancel();
     emit(state.copyWith(
@@ -218,6 +453,7 @@ class PassengerCubit extends Cubit<PassengerState> {
       clearActiveOffer: true,
       clearActiveTrip: true,
       clearActiveReceipt: true,
+      clearMatchingOutcome: true,
       offerExpirySeconds: 20,
     ));
   }
@@ -227,7 +463,6 @@ class PassengerCubit extends Cubit<PassengerState> {
     if (trip == null) return;
 
     if (trip.currentWaypointIndex >= trip.waypoints.length - 1) {
-      // Reached destination milestone
       completeActiveTrip();
       return;
     }
@@ -248,7 +483,6 @@ class PassengerCubit extends Cubit<PassengerState> {
         trip?.currentDetourPercentage ?? offer.detourPercentage;
     final distanceKm = state.estimate?.distanceKm ?? 14.0;
 
-    // Environmental metrics based on shared distance
     final kmSaved = (distanceKm * 0.6).clamp(1.0, 50.0);
     final co2Saved = kmSaved * 0.12;
 
@@ -298,6 +532,7 @@ class PassengerCubit extends Cubit<PassengerState> {
       tripHistory: updatedHistory,
       clearActiveTrip: true,
       clearActiveOffer: true,
+      clearMatchingOutcome: true,
     ));
   }
 
@@ -307,6 +542,7 @@ class PassengerCubit extends Cubit<PassengerState> {
       clearActiveReceipt: true,
       clearActiveTrip: true,
       clearActiveOffer: true,
+      clearMatchingOutcome: true,
     ));
   }
 
@@ -343,40 +579,47 @@ class PassengerCubit extends Cubit<PassengerState> {
     ));
   }
 
-  PooledRideOffer _generateSampleOffer() {
-    final pickup = state.pickup ?? PuneLandmarks.kothrud;
-    final dropoff = state.dropoff ?? PuneLandmarks.hinjawadiPhase1;
-    final estimate = state.estimate ??
-        _estimator.estimateRoute(pickup: pickup, dropoff: dropoff);
+  void startPinConfirmationMode({required bool isPickup}) {
+    emit(state.copyWith(
+      isPinConfirmationMode: true,
+      pinTargetIsPickup: isPickup,
+      pendingPinLocation: isPickup ? state.pickup : state.dropoff,
+    ));
+  }
 
-    final soloFare = estimate.referenceFare;
-    // Transparent Shapley 30% pooled discount for a 3-passenger coalition
-    final sharedFare = (soloFare * 0.70).roundToDouble();
+  void setPendingPinLocation(PuneLocation location) {
+    emit(state.copyWith(pendingPinLocation: location));
+  }
 
-    return PooledRideOffer(
-      offerId: 'offer-pune-${DateTime.now().millisecondsSinceEpoch}',
-      vehicleModel: 'Tata Tigor EV',
-      licensePlate: 'MH-12-RN-4821',
-      driverName: 'Suresh K.',
-      driverRating: 4.9,
+  void confirmMapPin(PuneLocation location) {
+    if (state.pinTargetIsPickup) {
+      setPickup(location);
+    } else {
+      setDropoff(location);
+    }
+    emit(state.copyWith(
+      isPinConfirmationMode: false,
+      clearPendingPinLocation: true,
+    ));
+  }
+
+  void cancelPinConfirmationMode() {
+    emit(state.copyWith(
+      isPinConfirmationMode: false,
+      clearPendingPinLocation: true,
+    ));
+  }
+
+  SoloRouteEstimate? _recalculateEstimate({
+    required PuneLocation? pickup,
+    required PuneLocation? dropoff,
+    required VehicleTier tier,
+  }) {
+    if (pickup == null || dropoff == null || pickup == dropoff) return null;
+    return _estimator.estimateRoute(
       pickup: pickup,
       dropoff: dropoff,
-      pickupEtaMinutes: 4,
-      dropoffEtaMinutes: (estimate.durationMinutes * 1.08).round(),
-      coPassengersCount: 2,
-      coPassengerLabels: const [
-        'Rohan (Swargate)',
-        'Priya (Kothrud)',
-      ],
-      detourPercentage: 8.4, // Strict <= 15.0% guarantee certified
-      fareBreakdown: ShapleyFareBreakdown(
-        soloFare: soloFare,
-        sharedFare: sharedFare,
-        coalitionSize: 3,
-        explanation:
-            'Mathematically allocated via Shapley marginal cost contributions. Capped below solo baseline.',
-      ),
-      offerExpirySeconds: 20,
+      rateMultiplier: tier.rateMultiplier,
     );
   }
 

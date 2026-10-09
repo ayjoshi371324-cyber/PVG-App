@@ -6,18 +6,20 @@ class PartySizeSelector extends StatelessWidget {
   const PartySizeSelector({
     super.key,
     required this.partySize,
+    this.maxCapacity = 6,
     required this.onIncrement,
     required this.onDecrement,
   });
 
   final int partySize;
+  final int maxCapacity;
   final VoidCallback? onIncrement;
   final VoidCallback? onDecrement;
 
   @override
   Widget build(BuildContext context) {
     final canDecrement = partySize > 1 && onDecrement != null;
-    final canIncrement = partySize < 3 && onIncrement != null;
+    final canIncrement = partySize < maxCapacity && onIncrement != null;
 
     final seatText = partySize == 1 ? '1 Seat' : '$partySize Seats';
 
@@ -46,7 +48,7 @@ class PartySizeSelector extends StatelessWidget {
                     style: UberTypography.bodyMdStrong,
                   ),
                   Text(
-                    'Party size (1–3 passengers)',
+                    'Party size (1–$maxCapacity passengers)',
                     style: UberTypography.caption,
                   ),
                 ],

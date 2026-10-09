@@ -127,9 +127,9 @@ class RouteEstimatorService {
     return max(0.5, double.parse(roadDistanceKm.toStringAsFixed(1)));
   }
 
-  double calculateSoloFare(double distanceKm) {
-    if (distanceKm <= 0) return baseFare;
-    final calculated = baseFare + (distanceKm * ratePerKm);
+  double calculateSoloFare(double distanceKm, {double rateMultiplier = 1.0}) {
+    if (distanceKm <= 0) return baseFare * rateMultiplier;
+    final calculated = (baseFare + (distanceKm * ratePerKm)) * rateMultiplier;
     return double.parse(calculated.toStringAsFixed(1));
   }
 
@@ -143,10 +143,11 @@ class RouteEstimatorService {
   SoloRouteEstimate estimateRoute({
     required PuneLocation pickup,
     required PuneLocation dropoff,
+    double rateMultiplier = 1.0,
   }) {
     final distanceKm = calculateDistanceKm(pickup, dropoff);
     final durationMins = calculateDurationMinutes(distanceKm);
-    final fare = calculateSoloFare(distanceKm);
+    final fare = calculateSoloFare(distanceKm, rateMultiplier: rateMultiplier);
     final polyline = _generateRoutePolyline(pickup, dropoff);
 
     return SoloRouteEstimate(
