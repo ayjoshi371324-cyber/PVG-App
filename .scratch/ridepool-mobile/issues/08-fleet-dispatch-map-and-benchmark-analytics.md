@@ -5,11 +5,11 @@ The Operations & Fleet Manager interface on mobile. Displays a comprehensive map
 
 **Blocked by:** 03: Dynamic Batch Intake Queue & Waiting Countdown, 07: Driver Route Manifest, Stop Progression & Cabin Occupancy
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Fleet overview map displays all vehicles with live status badges (idle, picking up, in pool).
-- [ ] Ops controls allow triggering the batch optimization engine manually.
-- [ ] Synthetic passenger request generator injects test demand scenarios into the intake queue.
-- [ ] Comparative analytics dashboard cards display Algorithmic Pooling vs. Greedy Baseline metrics side-by-side.
-- [ ] Detour guarantees inspector verifies that 100% of active routes comply with the <= 15% detour ceiling.
-- [ ] Tests verify fleet data parsing, simulation trigger dispatches, and benchmark metric calculations.
+- [x] Fleet overview map displays all vehicles with live status badges (idle, picking up, in pool).
+- [x] Ops controls allow triggering the batch optimization engine manually.
+- [x] Synthetic passenger request generator injects test demand scenarios into the intake queue.
+- [x] Comparative analytics dashboard cards display Algorithmic Pooling vs. Greedy Baseline metrics side-by-side.
+- [x] Detour guarantees inspector verifies that 100% of active routes comply with the <= 15% detour ceiling.
+- [x] Tests verify fleet data parsing, simulation trigger dispatches, and benchmark metric calculations.

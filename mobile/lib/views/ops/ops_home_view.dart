@@ -1,152 +1,310 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:ridepool_app/blocs/ops/ops_cubit.dart';
+import 'package:ridepool_app/blocs/ops/ops_state.dart';
 import 'package:ridepool_app/core/theme.dart';
+import 'package:ridepool_app/data/models/ops_fleet_models.dart';
 import 'package:ridepool_app/widgets/bottom_drawer_sheet.dart';
+import 'package:ridepool_app/widgets/comparative_benchmark_card.dart';
+import 'package:ridepool_app/widgets/detour_guarantee_inspector.dart';
 import 'package:ridepool_app/widgets/metric_badge.dart';
 import 'package:ridepool_app/widgets/pill_button.dart';
+import 'package:ridepool_app/widgets/pune_map_widget.dart';
 import 'package:ridepool_app/widgets/uber_card.dart';
 
 class OpsHomeView extends StatelessWidget {
-  const OpsHomeView({super.key});
+  const OpsHomeView({super.key, this.cubit});
+
+  final OpsCubit? cubit;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: UberColors.canvas,
-      body: Stack(
-        children: [
-          // Background simulation canvas / map placeholder
-          Positioned.fill(
+    OpsCubit? existingCubit;
+    try {
+      existingCubit = cubit ?? context.read<OpsCubit>();
+    } catch (_) {
+      existingCubit = null;
+    }
+
+    if (existingCubit != null) {
+      return BlocProvider<OpsCubit>.value(
+        value: existingCubit,
+        child: const _OpsHomeContent(),
+      );
+    }
+
+    return BlocProvider<OpsCubit>(
+      create: (_) => OpsCubit(),
+      child: const _OpsHomeContent(),
+    );
+  }
+}
+
+class _OpsHomeContent extends StatelessWidget {
+  const _OpsHomeContent();
+
+  List<Marker> _buildFleetMarkers(BuildContext context, List<FleetVehicle> vehicles, String? selectedId) {
+    return vehicles.map((v) {
+      final isSelected = v.id == selectedId;
+      Color statusColor;
+      IconData icon;
+
+      switch (v.status) {
+        case FleetVehicleStatus.idle:
+          statusColor = UberColors.body;
+          icon = Icons.pause_circle_outline_rounded;
+          break;
+        case FleetVehicleStatus.pickingUp:
+          statusColor = UberColors.accentOrange;
+          icon = Icons.person_pin_circle_rounded;
+          break;
+        case FleetVehicleStatus.inPool:
+          statusColor = UberColors.ink;
+          icon = Icons.electric_car_rounded;
+          break;
+      }
+
+      return Marker(
+        point: v.currentLocation.toLatLng(),
+        width: 104,
+        height: 44,
+        child: GestureDetector(
+          onTap: () {
+            context.read<OpsCubit>().selectVehicle(v.id);
+          },
+          child: Center(
             child: Container(
-              color: UberColors.canvasSofter,
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.analytics_outlined,
-                      size: 64,
-                      color: UberColors.mute.withValues(alpha: 0.5),
-                    ),
-                    const SizedBox(height: UberSpacing.sm),
-                    Text(
-                      'Fleet Operations & Dispatch Console',
-                      style: UberTypography.displaySm.copyWith(
-                        color: UberColors.hairlineMid,
-                      ),
-                    ),
-                    const SizedBox(height: UberSpacing.xs),
-                    Text(
-                      'Live dynamic batch intake & Shapley optimization metrics',
-                      style: UberTypography.bodySm,
-                    ),
-                  ],
+              decoration: BoxDecoration(
+                color: isSelected ? UberColors.ink : UberColors.canvas,
+                borderRadius: UberRadii.pill,
+                border: Border.all(
+                  color: isSelected ? UberColors.accentGreen : statusColor,
+                  width: isSelected ? 2.5 : 1.5,
                 ),
-              ),
-            ),
-          ),
-
-          // Upper status badges
-          Positioned(
-            top: UberSpacing.md,
-            left: UberSpacing.lg,
-            right: UberSpacing.lg,
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: UberSpacing.sm,
-              runSpacing: UberSpacing.xs,
-              children: const [
-                MetricBadge(
-                  label: 'Fleet Active',
-                  value: '12/12',
-                  icon: Icons.electric_car_rounded,
-                  variant: MetricBadgeVariant.neutral,
-                  compact: true,
-                ),
-                MetricBadge(
-                  label: 'Batch Tick',
-                  value: '00:15s',
-                  icon: Icons.timer_outlined,
-                  variant: MetricBadgeVariant.dark,
-                  compact: true,
-                ),
-              ],
-            ),
-          ),
-
-          // Persistent Operations Bottom Sheet
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: BottomDrawerSheet(
-              title: 'Dynamic Intake Queue',
-              subtitle: '6 pending requests awaiting batch optimization tick',
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: UberCard(
-                          variant: UberCardVariant.tinted,
-                          padding: const EdgeInsets.all(UberSpacing.md),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Fleet Savings', style: UberTypography.caption),
-                              const SizedBox(height: 2),
-                              Text('38.2%', style: UberTypography.displaySm.copyWith(color: UberColors.accentGreen)),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: UberSpacing.md),
-                      Expanded(
-                        child: UberCard(
-                          variant: UberCardVariant.tinted,
-                          padding: const EdgeInsets.all(UberSpacing.md),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Max Detour', style: UberTypography.caption),
-                              const SizedBox(height: 2),
-                              Text('11.4%', style: UberTypography.displaySm.copyWith(color: UberColors.accentGreen)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
                   ),
-                  const SizedBox(height: UberSpacing.md),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: PillButton(
-                          label: 'Trigger Batch Now',
-                          size: PillButtonSize.large,
-                          variant: PillButtonVariant.primary,
-                          icon: Icons.play_arrow_rounded,
-                          onPressed: () {},
-                        ),
-                      ),
-                      const SizedBox(width: UberSpacing.sm),
-                      PillButton(
-                        label: 'Inject +5',
-                        size: PillButtonSize.large,
-                        variant: PillButtonVariant.secondary,
-                        icon: Icons.add_rounded,
-                        onPressed: () {},
-                      ),
-                    ],
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: 14,
+                    color: isSelected ? UberColors.onPrimary : statusColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    v.id,
+                    style: UberTypography.caption.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: isSelected ? UberColors.onPrimary : UberColors.ink,
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      );
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<OpsCubit, OpsState>(
+      builder: (context, state) {
+        final fleetMarkers = _buildFleetMarkers(
+          context,
+          state.vehicles,
+          state.selectedVehicleId,
+        );
+
+        return Scaffold(
+          backgroundColor: UberColors.canvas,
+          body: Stack(
+            children: [
+              // Fleet overview map
+              Positioned.fill(
+                child: PuneMapWidget(
+                  extraMarkers: fleetMarkers,
+                ),
+              ),
+
+              // Upper Floating Status Header
+              Positioned(
+                top: UberSpacing.md,
+                left: UberSpacing.lg,
+                right: UberSpacing.lg,
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: UberSpacing.sm,
+                  runSpacing: UberSpacing.xs,
+                  children: [
+                    MetricBadge(
+                      label: 'Fleet Active',
+                      value: '${state.activeFleetCount}/${state.totalFleetCount}',
+                      icon: Icons.electric_car_rounded,
+                      variant: MetricBadgeVariant.neutral,
+                      compact: true,
+                    ),
+                    MetricBadge(
+                      label: 'Detour',
+                      value: '100% Compliant',
+                      icon: Icons.verified_user_rounded,
+                      variant: MetricBadgeVariant.success,
+                      compact: true,
+                    ),
+                    MetricBadge(
+                      label: 'Batches',
+                      value: '#${state.totalCompletedBatches}',
+                      icon: Icons.auto_awesome_rounded,
+                      variant: MetricBadgeVariant.dark,
+                      compact: true,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Operations Bottom Sheet
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: BottomDrawerSheet(
+                  title: 'Dynamic Intake Queue',
+                  subtitle:
+                      '${state.pendingDemand.length} pending requests awaiting batch optimization',
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.sizeOf(context).height * 0.58,
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Control actions row
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: PillButton(
+                                  key: const Key('ops_trigger_batch_button'),
+                                  label: 'Trigger Batch Now',
+                                  size: PillButtonSize.large,
+                                  variant: PillButtonVariant.primary,
+                                  icon: Icons.play_arrow_rounded,
+                                  onPressed: () {
+                                    context.read<OpsCubit>().triggerBatchOptimization();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: UberSpacing.sm),
+                              Expanded(
+                                flex: 2,
+                                child: PillButton(
+                                  key: const Key('ops_inject_demand_button'),
+                                  label: 'Inject +3',
+                                  size: PillButtonSize.large,
+                                  variant: PillButtonVariant.secondary,
+                                  icon: Icons.add_rounded,
+                                  onPressed: () {
+                                    context.read<OpsCubit>().injectSyntheticDemand(count: 3);
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: UberSpacing.md),
+
+                          // Selected Vehicle Detail Card (if any selected)
+                          if (state.selectedVehicle != null) ...[
+                            UberCard(
+                              variant: UberCardVariant.elevated,
+                              padding: const EdgeInsets.all(UberSpacing.md),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${state.selectedVehicle!.id} • ${state.selectedVehicle!.name}',
+                                        style: UberTypography.bodySmStrong,
+                                      ),
+                                      Text(
+                                        '${state.selectedVehicle!.licensePlate} • ${state.selectedVehicle!.currentLocation.name}',
+                                        style: UberTypography.caption,
+                                      ),
+                                      if (state.selectedVehicle!.assignedRouteName != null)
+                                        Text(
+                                          state.selectedVehicle!.assignedRouteName!,
+                                          style: UberTypography.caption.copyWith(
+                                            color: UberColors.accentGreen,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      MetricBadge(
+                                        label: '',
+                                        value: state.selectedVehicle!.statusLabel,
+                                        variant: state.selectedVehicle!.isInPool
+                                            ? MetricBadgeVariant.dark
+                                            : (state.selectedVehicle!.isPickingUp
+                                                ? MetricBadgeVariant.warning
+                                                : MetricBadgeVariant.neutral),
+                                        compact: true,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${state.selectedVehicle!.currentOccupancy}/${state.selectedVehicle!.maxCapacity} Seats',
+                                        style: UberTypography.caption,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: UberSpacing.md),
+                          ],
+
+                          // Comparative Benchmarks Card
+                          ComparativeBenchmarkCard(
+                            benchmark: state.benchmark,
+                          ),
+
+                          const SizedBox(height: UberSpacing.md),
+
+                          // Detour Guarantees Inspector
+                          DetourGuaranteeInspector(
+                            records: state.activeDetourRecords,
+                          ),
+
+                          const SizedBox(height: UberSpacing.md),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

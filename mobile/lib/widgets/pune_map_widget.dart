@@ -11,6 +11,8 @@ class PuneMapWidget extends StatefulWidget {
     this.dropoff,
     this.polylinePoints = const [],
     this.vehiclePosition,
+    this.extraMarkers = const [],
+    this.extraPolylines = const [],
     this.onMapTap,
   });
 
@@ -18,6 +20,8 @@ class PuneMapWidget extends StatefulWidget {
   final PuneLocation? dropoff;
   final List<LatLng> polylinePoints;
   final LatLng? vehiclePosition;
+  final List<Marker> extraMarkers;
+  final List<Polyline> extraPolylines;
   final void Function(LatLng point)? onMapTap;
 
   static const LatLng defaultPuneCenter = LatLng(18.5204, 73.8567);
@@ -165,19 +169,21 @@ class _PuneMapWidgetState extends State<PuneMapWidget> {
               userAgentPackageName: 'com.pvg.ridepool',
               maxZoom: 19,
             ),
-            if (widget.polylinePoints.isNotEmpty)
+            if (widget.polylinePoints.isNotEmpty || widget.extraPolylines.isNotEmpty)
               PolylineLayer(
                 polylines: [
-                  Polyline(
-                    points: widget.polylinePoints,
-                    strokeWidth: 4.5,
-                    color: UberColors.primary,
-                    strokeCap: StrokeCap.round,
-                    strokeJoin: StrokeJoin.round,
-                  ),
+                  if (widget.polylinePoints.isNotEmpty)
+                    Polyline(
+                      points: widget.polylinePoints,
+                      strokeWidth: 4.5,
+                      color: UberColors.primary,
+                      strokeCap: StrokeCap.round,
+                      strokeJoin: StrokeJoin.round,
+                    ),
+                  ...widget.extraPolylines,
                 ],
               ),
-            MarkerLayer(markers: markers),
+            MarkerLayer(markers: [...markers, ...widget.extraMarkers]),
           ],
         ),
 
