@@ -205,17 +205,24 @@ class _PassengerHomeContent extends StatelessWidget {
                     requestId:
                         'join-sim-${DateTime.now().millisecondsSinceEpoch}',
                     passengerName: 'Vikram S.',
-                    pickupLocation: PuneLandmarks.shivajiNagar,
+                    pickupLocation: const PuneLocation(
+                      name: 'Bavdhan Flyover',
+                      latitude: 18.5126,
+                      longitude: 73.7712,
+                    ),
                     dropoffLocation: PuneLandmarks.hinjawadiPhase1,
                     previousDetourPercentage: trip.currentDetourPercentage,
                     newDetourPercentage: 11.5,
                     additionalSavings: 25.0,
                     newSharedFare: 171.0,
+                    etaDeltaMinutes: 3,
+                    updatedEtaMinutes: 27,
+                    secondsRemaining: 30,
                   ),
                 );
           },
           onCancel: () {
-            context.read<PassengerCubit>().declineOffer();
+            context.read<PassengerCubit>().cancelActiveTripPreDeparture();
           },
         ),
       );

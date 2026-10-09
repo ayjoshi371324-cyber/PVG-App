@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:ridepool_app/blocs/passenger/passenger_state.dart';
 import 'package:ridepool_app/core/engine/batch_matching_engine.dart';
+import 'package:ridepool_app/core/engine/in_flight_rebalancing_engine.dart';
+import 'package:ridepool_app/core/engine/seat_ledger.dart';
 import 'package:ridepool_app/core/route_estimator.dart';
 import 'package:ridepool_app/data/models/active_trip.dart';
 import 'package:ridepool_app/data/models/pooled_ride_offer.dart';
@@ -17,7 +19,9 @@ class PassengerCubit extends Cubit<PassengerState> {
     PuneLocation? initialPickup = PuneLandmarks.kothrud,
     PuneLocation? initialDropoff = PuneLandmarks.hinjawadiPhase1,
     VehicleTier initialTier = VehicleTier.auto,
+    InFlightRebalancingEngine? rebalancer,
   })  : _estimator = estimator,
+        _rebalancer = rebalancer ?? InFlightRebalancingEngine(estimator: estimator),
         _historyRepository =
             historyRepository ?? LocalTripHistoryRepository(),
         super(PassengerState(
@@ -36,9 +40,11 @@ class PassengerCubit extends Cubit<PassengerState> {
   }
 
   final RouteEstimatorService _estimator;
+  final InFlightRebalancingEngine _rebalancer;
   final TripHistoryRepository _historyRepository;
   Timer? _countdownTimer;
   Timer? _offerExpiryTimer;
+  Timer? _consentCountdownTimer;
 
   static final List<BatchVehicle> _defaultFleet = [
     BatchVehicle(
@@ -555,27 +561,103 @@ class PassengerCubit extends Cubit<PassengerState> {
     }
     final trip = state.activeTrip;
     if (trip == null) return;
+
+    _consentCountdownTimer?.cancel();
+
+    final countdown = joinRequest.secondsRemaining;
     emit(state.copyWith(
       activeTrip: trip.copyWith(pendingJoinRequest: joinRequest),
+      consentCountdownSeconds: countdown,
+    ));
+
+    _consentCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (state.consentCountdownSeconds > 1) {
+        final nextSec = state.consentCountdownSeconds - 1;
+        final currentTrip = state.activeTrip;
+        final currentReq = currentTrip?.pendingJoinRequest;
+
+        emit(state.copyWith(
+          consentCountdownSeconds: nextSec,
+          activeTrip: currentReq != null
+              ? currentTrip!.copyWith(
+                  pendingJoinRequest: currentReq.copyWith(secondsRemaining: nextSec),
+                )
+              : currentTrip,
+        ));
+      } else {
+        timer.cancel();
+        simulateConsentTimeout();
+      }
+    });
+  }
+
+  void simulateConsentTimeout() {
+    _consentCountdownTimer?.cancel();
+    final trip = state.activeTrip;
+    if (trip == null) return;
+
+    emit(state.copyWith(
+      activeTrip: trip.copyWith(clearPendingJoinRequest: true),
+      consentCountdownSeconds: 30,
     ));
   }
 
   void approveMidTripJoin() {
+    _consentCountdownTimer?.cancel();
     final trip = state.activeTrip;
     final joinReq = trip?.pendingJoinRequest;
     if (trip == null || joinReq == null) return;
 
     emit(state.copyWith(
       activeTrip: trip.applyMidTripJoin(joinReq),
+      consentCountdownSeconds: 30,
     ));
   }
 
   void rejectMidTripJoin() {
+    _consentCountdownTimer?.cancel();
     final trip = state.activeTrip;
     if (trip == null) return;
 
     emit(state.copyWith(
       activeTrip: trip.copyWith(clearPendingJoinRequest: true),
+      consentCountdownSeconds: 30,
+    ));
+  }
+
+  void cancelActiveTripPreDeparture() {
+    _consentCountdownTimer?.cancel();
+    emit(state.copyWith(
+      status: PassengerBookingStatus.planning,
+      clearActiveTrip: true,
+      clearActiveOffer: true,
+      clearMatchingOutcome: true,
+      clearActiveReceipt: true,
+      consentCountdownSeconds: 30,
+    ));
+  }
+
+  void cancelCoPassengerMidTrip({
+    required String bookingId,
+    int partySize = 1,
+  }) {
+    final trip = state.activeTrip;
+    if (trip == null) return;
+
+    final dummyLedger = SeatLedger.empty(capacity: 4)
+        .boardSeats(bookingId: 'book-1', partySize: trip.offer.partySize)
+        .boardSeats(bookingId: bookingId, partySize: partySize);
+
+    final result = _rebalancer.handleMidTripCancellation(
+      trip: trip,
+      ledger: dummyLedger,
+      cancelledBookingId: bookingId,
+      cancelledPartySize: partySize,
+      rateMultiplier: state.selectedTier.rateMultiplier,
+    );
+
+    emit(state.copyWith(
+      activeTrip: result.updatedTrip,
     ));
   }
 
@@ -627,6 +709,7 @@ class PassengerCubit extends Cubit<PassengerState> {
   Future<void> close() {
     _countdownTimer?.cancel();
     _offerExpiryTimer?.cancel();
+    _consentCountdownTimer?.cancel();
     return super.close();
   }
 }

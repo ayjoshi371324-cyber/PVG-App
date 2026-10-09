@@ -37,6 +37,7 @@ class PassengerState extends Equatable {
     this.isPinConfirmationMode = false,
     this.pinTargetIsPickup = true,
     this.pendingPinLocation,
+    this.consentCountdownSeconds = 30,
   });
 
   final PuneLocation? pickup;
@@ -58,6 +59,7 @@ class PassengerState extends Equatable {
   final bool isPinConfirmationMode;
   final bool pinTargetIsPickup;
   final PuneLocation? pendingPinLocation;
+  final int consentCountdownSeconds;
 
   PassengerState copyWith({
     PuneLocation? pickup,
@@ -84,6 +86,7 @@ class PassengerState extends Equatable {
     bool? pinTargetIsPickup,
     PuneLocation? pendingPinLocation,
     bool clearPendingPinLocation = false,
+    int? consentCountdownSeconds,
   }) {
     return PassengerState(
       pickup: pickup ?? this.pickup,
@@ -112,6 +115,8 @@ class PassengerState extends Equatable {
       pendingPinLocation: clearPendingPinLocation
           ? null
           : (pendingPinLocation ?? this.pendingPinLocation),
+      consentCountdownSeconds:
+          consentCountdownSeconds ?? this.consentCountdownSeconds,
     );
   }
 
@@ -136,5 +141,6 @@ class PassengerState extends Equatable {
         isPinConfirmationMode,
         pinTargetIsPickup,
         pendingPinLocation,
+        consentCountdownSeconds,
       ];
 }

@@ -155,6 +155,9 @@ class MidTripJoinRequest extends Equatable {
     required this.newDetourPercentage,
     required this.additionalSavings,
     required this.newSharedFare,
+    this.etaDeltaMinutes = 3,
+    this.updatedEtaMinutes = 26,
+    this.secondsRemaining = 30,
   }) {
     if (newDetourPercentage > kMaxDetourGuaranteePercentage) {
       throw DetourGuaranteeViolationException(
@@ -172,11 +175,43 @@ class MidTripJoinRequest extends Equatable {
   final double newDetourPercentage;
   final double additionalSavings;
   final double newSharedFare;
+  final int etaDeltaMinutes;
+  final int updatedEtaMinutes;
+  final int secondsRemaining;
 
   bool get isDetourGuaranteed =>
       newDetourPercentage <= kMaxDetourGuaranteePercentage;
 
   double get detourDelta => newDetourPercentage - previousDetourPercentage;
+
+  MidTripJoinRequest copyWith({
+    String? requestId,
+    String? passengerName,
+    PuneLocation? pickupLocation,
+    PuneLocation? dropoffLocation,
+    double? previousDetourPercentage,
+    double? newDetourPercentage,
+    double? additionalSavings,
+    double? newSharedFare,
+    int? etaDeltaMinutes,
+    int? updatedEtaMinutes,
+    int? secondsRemaining,
+  }) {
+    return MidTripJoinRequest(
+      requestId: requestId ?? this.requestId,
+      passengerName: passengerName ?? this.passengerName,
+      pickupLocation: pickupLocation ?? this.pickupLocation,
+      dropoffLocation: dropoffLocation ?? this.dropoffLocation,
+      previousDetourPercentage:
+          previousDetourPercentage ?? this.previousDetourPercentage,
+      newDetourPercentage: newDetourPercentage ?? this.newDetourPercentage,
+      additionalSavings: additionalSavings ?? this.additionalSavings,
+      newSharedFare: newSharedFare ?? this.newSharedFare,
+      etaDeltaMinutes: etaDeltaMinutes ?? this.etaDeltaMinutes,
+      updatedEtaMinutes: updatedEtaMinutes ?? this.updatedEtaMinutes,
+      secondsRemaining: secondsRemaining ?? this.secondsRemaining,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'requestId': requestId,
@@ -187,6 +222,9 @@ class MidTripJoinRequest extends Equatable {
         'newDetourPercentage': newDetourPercentage,
         'additionalSavings': additionalSavings,
         'newSharedFare': newSharedFare,
+        'etaDeltaMinutes': etaDeltaMinutes,
+        'updatedEtaMinutes': updatedEtaMinutes,
+        'secondsRemaining': secondsRemaining,
       };
 
   factory MidTripJoinRequest.fromJson(Map<String, dynamic> json) {
@@ -210,6 +248,9 @@ class MidTripJoinRequest extends Equatable {
       newDetourPercentage: newDetour,
       additionalSavings: (json['additionalSavings'] as num).toDouble(),
       newSharedFare: (json['newSharedFare'] as num).toDouble(),
+      etaDeltaMinutes: (json['etaDeltaMinutes'] as num?)?.toInt() ?? 3,
+      updatedEtaMinutes: (json['updatedEtaMinutes'] as num?)?.toInt() ?? 26,
+      secondsRemaining: (json['secondsRemaining'] as num?)?.toInt() ?? 30,
     );
   }
 
@@ -223,6 +264,9 @@ class MidTripJoinRequest extends Equatable {
         newDetourPercentage,
         additionalSavings,
         newSharedFare,
+        etaDeltaMinutes,
+        updatedEtaMinutes,
+        secondsRemaining,
       ];
 }
 

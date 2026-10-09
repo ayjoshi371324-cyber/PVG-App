@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ridepool_app/blocs/driver/driver_cubit.dart';
 import 'package:ridepool_app/blocs/driver/driver_state.dart';
+import 'package:ridepool_app/core/route_estimator.dart';
 import 'package:ridepool_app/data/models/driver_manifest.dart';
 
 void main() {
@@ -121,6 +122,97 @@ void main() {
       expect(state.stops.first.status, equals(DriverStopStatus.current));
       expect(state.shiftStatus, equals(DriverShiftStatus.online));
       expect(state.cabinSeats.every((s) => !s.isOccupied), isTrue);
+    });
+
+    test('receives mid-trip join proposal and approval inserts stops into driver manifest', () {
+      final initialStopCount = driverCubit.state.stops.length;
+
+      final stopPickup = DriverStop(
+        id: 'stop-join-p',
+        passengerId: 'pax-join-1',
+        passengerName: 'Vikram S.',
+        stopType: DriverStopType.pickup,
+        location: PuneLandmarks.kothrud,
+        seats: 1,
+        verificationCode: '#5521',
+      );
+
+      final stopDropoff = DriverStop(
+        id: 'stop-join-d',
+        passengerId: 'pax-join-1',
+        passengerName: 'Vikram S.',
+        stopType: DriverStopType.dropoff,
+        location: PuneLandmarks.hinjawadiPhase1,
+        seats: 1,
+        verificationCode: '#5521',
+      );
+
+      driverCubit.receiveJoinProposal(
+        pickupStop: stopPickup,
+        dropoffStop: stopDropoff,
+      );
+
+      expect(driverCubit.state.pendingPickupStop, equals(stopPickup));
+      expect(driverCubit.state.pendingDropoffStop, equals(stopDropoff));
+
+      // Approve proposal
+      driverCubit.approveJoinProposal();
+
+      expect(driverCubit.state.pendingPickupStop, isNull);
+      expect(driverCubit.state.stops.length, equals(initialStopCount + 2));
+      expect(
+        driverCubit.state.stops.any((s) => s.passengerName == 'Vikram S.'),
+        isTrue,
+      );
+    });
+
+    test('rejectJoinProposal clears proposed stops without altering driver manifest', () {
+      final initialStopCount = driverCubit.state.stops.length;
+
+      final stopPickup = DriverStop(
+        id: 'stop-join-p',
+        passengerId: 'pax-join-1',
+        passengerName: 'Vikram S.',
+        stopType: DriverStopType.pickup,
+        location: PuneLandmarks.kothrud,
+        seats: 1,
+        verificationCode: '#5521',
+      );
+
+      final stopDropoff = DriverStop(
+        id: 'stop-join-d',
+        passengerId: 'pax-join-1',
+        passengerName: 'Vikram S.',
+        stopType: DriverStopType.dropoff,
+        location: PuneLandmarks.hinjawadiPhase1,
+        seats: 1,
+        verificationCode: '#5521',
+      );
+
+      driverCubit.receiveJoinProposal(
+        pickupStop: stopPickup,
+        dropoffStop: stopDropoff,
+      );
+
+      driverCubit.rejectJoinProposal();
+
+      expect(driverCubit.state.pendingPickupStop, isNull);
+      expect(driverCubit.state.stops.length, equals(initialStopCount));
+    });
+
+    test('cancelling a rider removes their pending stops from the driver manifest', () {
+      // Pooja P. has pending pickup and dropoff (pax-2)
+      driverCubit.cancelRider('pax-2');
+
+      expect(
+        driverCubit.state.stops.any((s) => s.passengerId == 'pax-2'),
+        isFalse,
+      );
+      // Aakash S. (pax-1) stops remain intact
+      expect(
+        driverCubit.state.stops.any((s) => s.passengerId == 'pax-1'),
+        isTrue,
+      );
     });
   });
 }

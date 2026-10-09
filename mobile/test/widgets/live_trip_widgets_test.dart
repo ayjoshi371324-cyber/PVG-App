@@ -118,6 +118,46 @@ void main() {
       await tester.pump();
       expect(approved, isTrue);
     });
+
+    testWidgets('renders 30s countdown indicator and explicit ETA, detour, and fare deltas', (tester) async {
+      final joinReq = MidTripJoinRequest(
+        requestId: 'join-99',
+        passengerName: 'Ananya R.',
+        pickupLocation: PuneLandmarks.shivajiNagar,
+        dropoffLocation: PuneLandmarks.hinjawadiPhase1,
+        previousDetourPercentage: 7.0,
+        newDetourPercentage: 10.5,
+        additionalSavings: 35.0,
+        newSharedFare: 165.0,
+        etaDeltaMinutes: 4,
+        updatedEtaMinutes: 28,
+        secondsRemaining: 30,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: UberTheme.lightTheme,
+          home: Scaffold(
+            body: MidTripConsentSheet(
+              joinRequest: joinReq,
+              onApprove: () {},
+              onReject: () {},
+            ),
+          ),
+        ),
+      );
+
+      // Verify 30s countdown timer badge
+      expect(find.byKey(const Key('consent_countdown_indicator')), findsOneWidget);
+      expect(find.text('30s remaining'), findsOneWidget);
+
+      // Verify Explicit Route & Fare Deltas section
+      expect(find.text('EXPLICIT ROUTE & FARE DELTAS'), findsOneWidget);
+      expect(find.text('+4 mins'), findsOneWidget);
+      expect(find.text('New: 28 min'), findsOneWidget);
+      expect(find.text('+3.5%'), findsOneWidget);
+      expect(find.text('₹165'), findsOneWidget);
+    });
   });
 
   group('LiveTripTrackingCard', () {

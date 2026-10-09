@@ -15,6 +15,8 @@ class DriverState extends Equatable {
     this.shiftStatus = DriverShiftStatus.online,
     this.cabinSeats = const [],
     this.currentOccupancy = 0,
+    this.pendingPickupStop,
+    this.pendingDropoffStop,
   });
 
   final DriverVehicle vehicle;
@@ -23,6 +25,8 @@ class DriverState extends Equatable {
   final DriverShiftStatus shiftStatus;
   final List<CabinSeat> cabinSeats;
   final int currentOccupancy;
+  final DriverStop? pendingPickupStop;
+  final DriverStop? pendingDropoffStop;
 
   DriverStop? get currentStop =>
       (currentStopIndex >= 0 && currentStopIndex < stops.length)
@@ -53,6 +57,10 @@ class DriverState extends Equatable {
     DriverShiftStatus? shiftStatus,
     List<CabinSeat>? cabinSeats,
     int? currentOccupancy,
+    DriverStop? pendingPickupStop,
+    bool clearPendingPickupStop = false,
+    DriverStop? pendingDropoffStop,
+    bool clearPendingDropoffStop = false,
   }) {
     return DriverState(
       vehicle: vehicle ?? this.vehicle,
@@ -61,6 +69,12 @@ class DriverState extends Equatable {
       shiftStatus: shiftStatus ?? this.shiftStatus,
       cabinSeats: cabinSeats ?? this.cabinSeats,
       currentOccupancy: currentOccupancy ?? this.currentOccupancy,
+      pendingPickupStop: clearPendingPickupStop
+          ? null
+          : (pendingPickupStop ?? this.pendingPickupStop),
+      pendingDropoffStop: clearPendingDropoffStop
+          ? null
+          : (pendingDropoffStop ?? this.pendingDropoffStop),
     );
   }
 
@@ -72,5 +86,7 @@ class DriverState extends Equatable {
         shiftStatus,
         cabinSeats,
         currentOccupancy,
+        pendingPickupStop,
+        pendingDropoffStop,
       ];
 }

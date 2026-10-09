@@ -172,4 +172,52 @@ class DriverCubit extends Cubit<DriverState> {
   void resetRoute() {
     emit(_buildInitialState(state.vehicle, null));
   }
+
+  void receiveJoinProposal({
+    required DriverStop pickupStop,
+    required DriverStop dropoffStop,
+  }) {
+    emit(state.copyWith(
+      pendingPickupStop: pickupStop,
+      pendingDropoffStop: dropoffStop,
+    ));
+  }
+
+  void approveJoinProposal() {
+    final pStop = state.pendingPickupStop;
+    final dStop = state.pendingDropoffStop;
+    if (pStop == null || dStop == null) return;
+
+    final updatedStops = List<DriverStop>.from(state.stops);
+    // Insert new pickup before last dropoff
+    final lastDropoffIndex = updatedStops.lastIndexWhere((s) => s.isDropoff);
+    final insertPickupIndex = lastDropoffIndex != -1 ? lastDropoffIndex : updatedStops.length;
+    updatedStops.insert(insertPickupIndex, pStop);
+    updatedStops.add(dStop);
+
+    emit(state.copyWith(
+      stops: updatedStops,
+      clearPendingPickupStop: true,
+      clearPendingDropoffStop: true,
+    ));
+  }
+
+  void rejectJoinProposal() {
+    emit(state.copyWith(
+      clearPendingPickupStop: true,
+      clearPendingDropoffStop: true,
+    ));
+  }
+
+  void cancelRider(String passengerId) {
+    // Only pending stops are removed; completed ones remain frozen in history
+    final updatedStops = state.stops.where((s) {
+      if (s.passengerId == passengerId && s.status != DriverStopStatus.completed) {
+        return false;
+      }
+      return true;
+    }).toList();
+
+    emit(state.copyWith(stops: updatedStops));
+  }
 }

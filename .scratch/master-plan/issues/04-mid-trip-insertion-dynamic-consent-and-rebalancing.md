@@ -5,11 +5,11 @@ Dynamic lifecycle management for mid-trip joins and ride cancellations. When a n
 
 **Blocked by:** 01: Core Game-Theory Engine, Dynamic Seat Ledger & Golden Fixtures, 03: Explainable Shapley Fair-Fare Offer & Multi-Passenger Live Map
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Mid-trip insertion engine evaluates candidate pickup/dropoff insertions along the vehicle's remaining route, strictly rejecting requests exceeding 15% detour or seat capacity.
-- [ ] Valid insertion triggers a multi-party consent request with a 30s countdown, notifying the driver and all existing riders whose route or ETA is impacted.
-- [ ] Consent sheet displays the explicit delta: updated ETA, detour change, and updated (discounted) fare.
-- [ ] Inserting a rider requires approval from all required parties; any rejection or timeout cleanly rolls back the proposed route without altering active trips.
-- [ ] Pre-departure cancellation removes the passenger from the active pool, releases their held/reserved seats in the ledger, and rebalances the remaining route and Shapley fares.
-- [ ] Mid-trip cancellation freezes completed prefixes, re-optimizes the pending leg, and adjusts fares with re-consent if remaining riders' costs change.
+- [x] Mid-trip insertion engine evaluates candidate pickup/dropoff insertions along the vehicle's remaining route, strictly rejecting requests exceeding 15% detour or seat capacity.
+- [x] Valid insertion triggers a multi-party consent request with a 30s countdown, notifying the driver and all existing riders whose route or ETA is impacted.
+- [x] Consent sheet displays the explicit delta: updated ETA, detour change, and updated (discounted) fare.
+- [x] Inserting a rider requires approval from all required parties; any rejection or timeout cleanly rolls back the proposed route without altering active trips.
+- [x] Pre-departure cancellation removes the passenger from the active pool, releases their held/reserved seats in the ledger, and rebalances the remaining route and Shapley fares.
+- [x] Mid-trip cancellation freezes completed prefixes, re-optimizes the pending leg, and adjusts fares with re-consent if remaining riders' costs change.

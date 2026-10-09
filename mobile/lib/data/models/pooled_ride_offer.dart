@@ -212,6 +212,42 @@ class PooledRideOffer extends Equatable {
   bool get isDetourGuaranteed =>
       detourPercentage <= kMaxDetourGuaranteePercentage;
 
+  PooledRideOffer copyWith({
+    String? offerId,
+    String? vehicleModel,
+    String? licensePlate,
+    String? driverName,
+    double? driverRating,
+    PuneLocation? pickup,
+    PuneLocation? dropoff,
+    int? pickupEtaMinutes,
+    int? dropoffEtaMinutes,
+    int? coPassengersCount,
+    List<String>? coPassengerLabels,
+    double? detourPercentage,
+    ShapleyFareBreakdown? fareBreakdown,
+    int? offerExpirySeconds,
+    int? partySize,
+  }) {
+    return PooledRideOffer(
+      offerId: offerId ?? this.offerId,
+      vehicleModel: vehicleModel ?? this.vehicleModel,
+      licensePlate: licensePlate ?? this.licensePlate,
+      driverName: driverName ?? this.driverName,
+      driverRating: driverRating ?? this.driverRating,
+      pickup: pickup ?? this.pickup,
+      dropoff: dropoff ?? this.dropoff,
+      pickupEtaMinutes: pickupEtaMinutes ?? this.pickupEtaMinutes,
+      dropoffEtaMinutes: dropoffEtaMinutes ?? this.dropoffEtaMinutes,
+      coPassengersCount: coPassengersCount ?? this.coPassengersCount,
+      coPassengerLabels: coPassengerLabels ?? this.coPassengerLabels,
+      detourPercentage: detourPercentage ?? this.detourPercentage,
+      fareBreakdown: fareBreakdown ?? this.fareBreakdown,
+      offerExpirySeconds: offerExpirySeconds ?? this.offerExpirySeconds,
+      partySize: partySize ?? this.partySize,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
         'offerId': offerId,
         'vehicleModel': vehicleModel,
