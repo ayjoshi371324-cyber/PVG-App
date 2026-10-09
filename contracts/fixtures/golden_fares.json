@@ -1,0 +1,196 @@
+{
+  "version": "1.0",
+  "cost_parameters": {
+    "base_fee": 20.0,
+    "rate_per_km": 10.0
+  },
+  "cases": [
+    {
+      "id": "case_1",
+      "name": "A, B, C on one line to same drop (4 + 3 + 5 km)",
+      "passengers": [
+        { "id": "A", "party_size": 1, "solo_km": 12.0, "solo_fare": 140.0 },
+        { "id": "B", "party_size": 1, "solo_km": 8.0, "solo_fare": 100.0 },
+        { "id": "C", "party_size": 1, "solo_km": 5.0, "solo_fare": 70.0 }
+      ],
+      "shared_km": 12.0,
+      "total_cost": 140.0,
+      "coalition_values": {
+        "A": 140.0,
+        "B": 100.0,
+        "C": 70.0,
+        "A,B": 140.0,
+        "A,C": 140.0,
+        "B,C": 100.0,
+        "A,B,C": 140.0
+      },
+      "expected_shares": {
+        "A": 78.33,
+        "B": 38.34,
+        "C": 23.33
+      },
+      "expected_shares_raw": {
+        "A": 78.33333333333333,
+        "B": 38.333333333333336,
+        "C": 23.333333333333332
+      },
+      "notes": "Exact Shapley with largest-remainder rounding distributes remaining paise so total equals 140.00 exactly."
+    },
+    {
+      "id": "case_2",
+      "name": "A 8 km, B 9 km, shared 12 km",
+      "passengers": [
+        { "id": "A", "party_size": 1, "solo_km": 8.0, "solo_fare": 100.0 },
+        { "id": "B", "party_size": 1, "solo_km": 9.0, "solo_fare": 110.0 }
+      ],
+      "shared_km": 12.0,
+      "total_cost": 140.0,
+      "coalition_values": {
+        "A": 100.0,
+        "B": 110.0,
+        "A,B": 140.0
+      },
+      "expected_shares": {
+        "A": 65.0,
+        "B": 75.0
+      },
+      "expected_shares_raw": {
+        "A": 65.0,
+        "B": 75.0
+      },
+      "notes": "A saves 35.0, B saves 35.0."
+    },
+    {
+      "id": "case_3",
+      "name": "Party AC (party_size 2, km 0-8) and Rider B (km 3-11)",
+      "passengers": [
+        { "id": "AC", "party_size": 2, "solo_km": 8.0, "solo_fare": 100.0 },
+        { "id": "B", "party_size": 1, "solo_km": 8.0, "solo_fare": 100.0 }
+      ],
+      "shared_km": 11.0,
+      "total_cost": 130.0,
+      "coalition_values": {
+        "AC": 100.0,
+        "B": 100.0,
+        "AC,B": 130.0
+      },
+      "expected_shares": {
+        "AC": 65.0,
+        "B": 65.0
+      },
+      "per_person_shares": {
+        "A": 32.5,
+        "C": 32.5,
+        "B": 65.0
+      },
+      "notes": "Per-booking policy: AC party pays 65.0 total (32.50 per head), B pays 65.0."
+    },
+    {
+      "id": "case_4",
+      "name": "A 0-7, B 4-14, C 9-14, shared 14 km (Strict Shapley)",
+      "passengers": [
+        { "id": "A", "party_size": 1, "solo_km": 7.0, "solo_fare": 90.0 },
+        { "id": "B", "party_size": 1, "solo_km": 10.0, "solo_fare": 120.0 },
+        { "id": "C", "party_size": 1, "solo_km": 5.0, "solo_fare": 70.0 }
+      ],
+      "shared_km": 14.0,
+      "total_cost": 160.0,
+      "coalition_values": {
+        "A": 90.0,
+        "B": 120.0,
+        "C": 70.0,
+        "A,B": 160.0,
+        "A,C": 160.0,
+        "B,C": 120.0,
+        "A,B,C": 160.0
+      },
+      "expected_shares": {
+        "A": 65.0,
+        "B": 60.0,
+        "C": 35.0
+      },
+      "expected_shares_raw": {
+        "A": 65.0,
+        "B": 60.0,
+        "C": 35.0
+      },
+      "notes": "Strict Shapley over characteristic function v(S) orderings yields 65.00 / 60.00 / 35.00."
+    },
+    {
+      "id": "case_5",
+      "name": "B separate + A,C pooled with solo fare ceiling cap",
+      "passengers": [
+        { "id": "A", "party_size": 1, "solo_km": 6.0, "solo_fare": 80.0 },
+        { "id": "B", "party_size": 1, "solo_km": 5.0, "solo_fare": 70.0 },
+        { "id": "C", "party_size": 1, "solo_km": 6.0, "solo_fare": 80.0 }
+      ],
+      "shared_km": 13.0,
+      "total_cost": 150.0,
+      "coalition_values": {
+        "A": 80.0,
+        "B": 70.0,
+        "C": 80.0,
+        "A,B": 150.0,
+        "A,C": 80.0,
+        "B,C": 150.0,
+        "A,B,C": 150.0
+      },
+      "expected_shares": {
+        "A": 40.0,
+        "B": 70.0,
+        "C": 40.0
+      },
+      "notes": "B alone is 70.0, A and C share 80.0 (40.0 each). Total is 150.0, no rider exceeds solo fare."
+    }
+  ],
+  "detour_rules": {
+    "max_detour_percent": 15.0,
+    "test_cases": [
+      {
+        "id": "valid_detour",
+        "solo_km": 10.0,
+        "shared_km": 11.2,
+        "detour_percent": 12.0,
+        "is_valid": true
+      },
+      {
+        "id": "invalid_detour_18_percent",
+        "solo_km": 10.0,
+        "shared_km": 11.8,
+        "detour_percent": 18.0,
+        "is_valid": false,
+        "rejection_reason": "DETOUR_LIMIT_EXCEEDED"
+      }
+    ]
+  },
+  "seat_rules": {
+    "vehicle_capacities": {
+      "auto": 3,
+      "car": 4,
+      "car_xl": 6
+    },
+    "test_cases": [
+      {
+        "id": "full_car_rejection",
+        "vehicle_capacity": 4,
+        "onboard_seats": 2,
+        "reserved_seats": 2,
+        "held_seats": 0,
+        "available_seats": 0,
+        "new_booking_party_size": 1,
+        "can_book": false
+      },
+      {
+        "id": "three_person_booking",
+        "vehicle_capacity": 4,
+        "onboard_seats": 0,
+        "reserved_seats": 0,
+        "held_seats": 0,
+        "available_seats": 4,
+        "new_booking_party_size": 3,
+        "can_book": true,
+        "resulting_available_seats": 1
+      }
+    ]
+  }
+}
