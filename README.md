@@ -47,29 +47,60 @@ Traditional ride-hailing networks operate on greedy, point-to-point dispatch or 
 
 ## 3. The Solution 💡
 
-RouteMates fuses combinatorial route permutation search with cooperative game theory ($\text{Shapley values}$), dynamic seat ledger state machines, and real-time WebSocket consensus to deliver transparent, bounded-detour shared rides.
+RouteMates fuses combinatorial route permutation search with cooperative game theory (Shapley values), dynamic seat ledger state machines, and real-time WebSocket consensus to deliver transparent, bounded-detour shared rides.
 
 - 🧩 **Combinatorial Route Optimization with Strict Detour Invariants:**
-  - Evaluates all valid pickup-and-dropoff stop permutations $\Pi(S)$ satisfying pickup-before-dropoff precedence: $\text{index}(P_i) < \text{index}(D_i), \; \forall i \in S$.
-  - Prunes infeasible paths using seat capacity constraints at every vertex $k$: $\sum_{i \in \text{Onboard}(k)} s_i \le C_{\text{vehicle}}$.
-  - Enforces a deterministic detour ceiling: $\text{Detour}_i = \frac{d_{\text{shared}, i} - d_{\text{solo}, i}}{d_{\text{solo}, i}} \le 0.15$ ($15\%$). Any route violating this bound is rejected.
-- ⚖️ **Axiomatic Shapley Fair-Fare Allocation with Solo-Fare Ceiling:**
-  - Computes exact marginal contributions over all $|N|!$ passenger arrival permutations:
+  - **Pickup-before-Dropoff Precedence:** Evaluates all valid stop permutations $\Pi(S)$ ensuring each passenger's pickup precedes their dropoff:
+    $$\operatorname{index}(P_i) < \operatorname{index}(D_i), \quad \forall i \in S$$
+  - **Segment Capacity Invariant:** Prunes infeasible paths using seat capacity feasibility at every intermediate route stop $k \in \{1, \dots, |R|\}$:
+    $$\sum_{i \in \operatorname{Onboard}(k)} s_i \le C_{\text{vehicle}}$$
+  - **Deterministic Detour Ceiling:** Binds journey prolongation for every participant to a maximum of 15% over their direct solo distance:
+    $$\operatorname{Detour}_i = \frac{d_{\text{shared}, i} - d_{\text{solo}, i}}{d_{\text{solo}, i}} \le 0.15 \quad (15\%)$$
+    *Any routing permutation violating this ceiling is immediately pruned from the candidate pool.*
+
+- ⚖️ **Axiomatic Shapley Fair-Fare Allocation & Solo-Fare Ceiling:**
+  - **Marginal Contribution Permutation Formula:** Exact Shapley share $\phi_i(v)$ averaged over all $|N|!$ arrival orderings:
     $$\phi_i(v) = \frac{1}{|N|!} \sum_{\pi \in \Pi(N)} \left[ v(S_i^{\pi} \cup \{i\}) - v(S_i^{\pi}) \right]$$
-    where $v(S)$ is the characteristic coalition cost function determined by the optimal routing cost: $v(S) = \text{base\_fee} + \text{rate\_per\_km} \times d^*(S)$ (baseline: $\text{₹}20 + \text{₹}10/\text{km}$).
-  - Enforces the **Individual Rationality** axiom via a hard solo-fare cap: $\phi_i^*(v) = \min(\phi_i(v), \text{SoloFare}_i)$, redistributing excess pro-rata across uncapped co-riders:
-    $$\Delta = \sum_{j \in \text{Capped}} (\phi_j - \text{SoloFare}_j), \quad \phi_k^{\text{adj}} = \phi_k + \Delta \cdot \frac{\phi_k}{\sum_{u \in \text{Uncapped}} \phi_u}$$
-  - Applies **Largest-Remainder Rounding (Hamilton-Hare method)** in integer paise (₹0.01) to ensure $\sum \text{fare}_i \equiv v(N)$ to the exact cent without penny discrepancy (e.g., $v(S) = \text{₹}152.80 \rightarrow \sum = \text{₹}153$).
+    where $S_i^{\pi}$ represents the preceding coalition of riders in ordering $\pi$.
+  - **Characteristic Coalition Cost Function $v(S)$:** Minimum achievable routing cost for any passenger subset $S \subseteq N$:
+    $$v(S) = c_{\text{base}} + c_{\text{km}} \cdot d^*(S)$$
+    where baseline corridor rates are $c_{\text{base}} = \text{₹}20$ and $c_{\text{km}} = \text{₹}10/\text{km}$, and $d^*(S)$ is the optimal route distance.
+  - **Individual Rationality (Solo-Fare Cap) & Pro-Rata Redistribution:** Guarantees no rider ever pays more than their solo reference fare ($\text{SoloFare}_i$):
+    $$\phi_i^*(v) = \min\left(\phi_i(v), \, \text{SoloFare}_i\right)$$
+    When certain riders hit the cap ($\mathcal{C} = \{j \in N \mid \phi_j(v) > \text{SoloFare}_j\}$), their excess burden is redistributed proportionally across uncapped riders ($\mathcal{U} = N \setminus \mathcal{C}$):
+    $$\begin{aligned}
+    \Delta &= \sum_{j \in \mathcal{C}} \left( \phi_j(v) - \text{SoloFare}_j \right) \\
+    \phi_k^{\text{adj}} &= \phi_k(v) + \Delta \cdot \frac{\phi_k(v)}{\sum_{u \in \mathcal{U}} \phi_u(v)}, \quad \forall k \in \mathcal{U}
+    \end{aligned}$$
+  - **Largest-Remainder Rounding (Hamilton-Hare in Integer Paise):** Converts adjusted rupee shares into integer paise ($1\text{ paise} = \text{₹}0.01$) ensuring exact balance without fractional discrepancies:
+    $$\begin{aligned}
+    P_{\text{total}} &= \operatorname{round}(100 \cdot v(N)) \\
+    \operatorname{paise}_i^{\text{floor}} &= \lfloor 100 \cdot \phi_i^{\text{adj}} \rfloor, \quad r_i = 100 \cdot \phi_i^{\text{adj}} - \operatorname{paise}_i^{\text{floor}}
+    \end{aligned}$$
+    The remainder discrepancy $R = P_{\text{total}} - \sum_i \operatorname{paise}_i^{\text{floor}}$ is distributed by incrementing 1 paise to the top $R$ riders with highest $r_i$, guaranteeing:
+    $$\sum_{i \in N} \operatorname{Fare}_i \equiv v(N)$$
+
 - 💺 **Four-Tier Dynamic Seat Ledger & Capacity Machine:**
-  - Formally tracks vehicle capacity via 4 mutually exclusive states:
-    $$\text{Available} = C_{\text{max}} - (\text{Occupied} + \text{Reserved} + \text{Held})$$
-    where $\text{Occupied} = \sum_{\text{ONBOARD}} s_i$, $\text{Reserved} = \sum_{\text{CONFIRMED} \cup \text{WAITING}} s_i$, and $\text{Held} = \sum_{\text{OFFERED} \cup \text{CONSENT}} s_i$.
-  - Implements expiring leases (15-second TTL on held seats) to prevent phantom reservations and seat-starvation attacks.
-- 🤝 **Multi-Party In-Flight Consent & Dynamic Rebalancing:**
-  - Coordinates in-transit insertions via WebSocket voting protocol: if an opportunistic rider appears along an active route, an in-flight simulation computes $\Delta \text{Detour}$, $\Delta \text{ETA}$, and $\Delta \text{Fare}$ (e.g., $+3\text{ min ETA}, -0.7\% \text{ Detour}, -\text{₹}25 \text{ fare drop}$).
-  - Broadcasts structured consent prompts to onboard riders with a 30s countdown; approval commits the detour and instantly updates Shapley refund credits.
+  - Formally tracks vehicle occupancy across four mutually exclusive lifecycle states:
+    $$\operatorname{Available} = C_{\text{max}} - (\operatorname{Occupied} + \operatorname{Reserved} + \operatorname{Held})$$
+    where state counts are aggregated by booking party sizes:
+    $$\begin{aligned}
+    \operatorname{Occupied} &= \sum_{i \in \mathcal{S}_{\text{ONBOARD}}} s_i \\
+    \operatorname{Reserved} &= \sum_{i \in \mathcal{S}_{\text{CONFIRMED}} \cup \mathcal{S}_{\text{WAITING}}} s_i \\
+    \operatorname{Held} &= \sum_{i \in \mathcal{S}_{\text{OFFERED}} \cup \mathcal{S}_{\text{CONSENT}}} s_i \quad (\text{with } 15\text{s lease TTL})
+    \end{aligned}$$
+  - Prevents overbooking and ensures full vehicles ($C_{\text{max}} = \operatorname{Occupied} + \operatorname{Reserved}$) offer zero join invitations.
+
+- 🤝 **Multi-Party In-Flight Consent Protocol:**
+  - Coordinates in-transit insertions via real-time consensus. When a compatible commuter $k$ is detected along the corridor:
+    $$\begin{aligned}
+    \Delta \operatorname{Detour}_i &= \operatorname{Detour}_{i}^{\text{new}} - \operatorname{Detour}_{i}^{\text{current}} \\
+    \Delta \operatorname{Fare}_i &= \phi_i(v \cup \{k\}) - \phi_i(v)
+    \end{aligned}$$
+  - Broadcasts structured consent prompts ($30\text{s}$ timeout); upon rider confirmation, the detour commits and refund credits ($-\text{₹}25$) are instantly applied.
+
 - 📱 **Dual-Engine Architecture (Edge Pure-Dart + Cloud FastAPI):**
-  - Seamlessly switches between a zero-latency **Offline Simulation Engine** (pure Dart running in-browser / on-device with seeded RNG) and a **Live Cloud Backend** (FastAPI, SQLite, WebSockets) verified against identical golden fixture contracts (`contracts/fixtures/golden_fares.json`).
+  - Seamlessly switches between a zero-latency **Offline Simulation Engine** (pure Dart running in-browser / on-device with seeded RNG) and a **Live Cloud Backend** (FastAPI, SQLite, WebSockets) verified against identical golden test vectors (`contracts/fixtures/golden_fares.json`).
 
 **End-to-End Pipeline Dependency Chain:**  
 `Passenger Request → Rolling Batch Intake (15s) → Detour & Corridor Filter (≤15%) → Precedence Permutation Optimizer → Characteristic Coalition Game v(S) → Exact Shapley Allocation φ_i(v) → Solo-Fare Cap & Pro-Rata Redistribution → Largest-Remainder Paise Rounding → Dynamic Seat Ledger Commitment → In-Flight Rebalancing & WebSocket Dispatch`
