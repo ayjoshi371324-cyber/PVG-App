@@ -52,7 +52,7 @@ The repository includes both root-level and `mobile/`-level configurations for s
 1. Go to your [Vercel Dashboard](https://vercel.com/) and click **Add New...** → **Project**.
 2. Import your GitHub repository.
 3. Configure the project:
-   * **Framework Preset:** Other
+   * **Framework Preset:** **Other** (Must be "Other"; do NOT select FastAPI)
    * **Root Directory:** `./` (default)
    * **Build Command:** (configured in `vercel.json` as `bash build.sh`)
    * **Output Directory:** `mobile/build/web`
@@ -60,7 +60,8 @@ The repository includes both root-level and `mobile/`-level configurations for s
    * Add `BACKEND_URL`: `https://<YOUR_RENDER_URL>` (e.g. `https://routemates-backend.onrender.com`)
 5. Click **Deploy**.
 
-Vercel will run `build.sh`, download the Flutter SDK, enable web support, compile the production bundle with your `BACKEND_URL` injected, and deploy the application.
+> [!NOTE]
+> If Vercel auto-detects `FastAPI` upon importing, change the **Framework Preset** dropdown to **Other**. The included `vercel.json` (`"framework": null`) and `.vercelignore` (ignoring `backend/`) ensure Vercel builds Flutter Web rather than attempting to serve FastAPI.
 
 ---
 
