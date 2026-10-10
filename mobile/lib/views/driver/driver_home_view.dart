@@ -78,10 +78,12 @@ class _DriverHomeContent extends StatelessWidget {
                 child: PuneMapWidget(
                   pickup: currentStop?.isPickup == true
                       ? currentStop!.location
-                      : state.stops.first.location,
+                      : (state.stops.isNotEmpty ? state.stops.first.location : null),
                   dropoff: currentStop?.isDropoff == true
                       ? currentStop!.location
-                      : (currentStop != null ? currentStop.location : state.stops.last.location),
+                      : (currentStop != null
+                          ? currentStop.location
+                          : (state.stops.isNotEmpty ? state.stops.last.location : null)),
                   polylinePoints: polyline,
                 ),
               ),
@@ -155,10 +157,14 @@ class _DriverHomeContent extends StatelessWidget {
                 child: BottomDrawerSheet(
                   title: isCompleted
                       ? 'Route Completed'
-                      : 'Next Stop: ${currentStop!.isPickup ? 'Pickup' : 'Dropoff'} ${currentStop.passengerName}',
+                      : (currentStop != null
+                          ? 'Next Stop: ${currentStop.isPickup ? 'Pickup' : 'Dropoff'} ${currentStop.passengerName}'
+                          : 'Waiting for Assigned Route'),
                   subtitle: isCompleted
                       ? 'All scheduled pickups & dropoffs successfully finished'
-                      : '${currentStop!.location.name} • ETA ${currentStop.etaMinutes} mins (${currentStop.distanceKm.toStringAsFixed(1)} km)',
+                      : (currentStop != null
+                          ? '${currentStop.location.name} • ETA ${currentStop.etaMinutes} mins (${currentStop.distanceKm.toStringAsFixed(1)} km)'
+                          : 'Vehicle is online and ready for pooling assignments'),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
                       maxHeight: MediaQuery.sizeOf(context).height * 0.55,
@@ -212,73 +218,82 @@ class _DriverHomeContent extends StatelessWidget {
                                       ),
                                     ],
                                   )
-                                : Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                : (currentStop != null
+                                    ? Column(
+                                        crossAxisAlignment: CrossAxisAlignment.stretch,
                                         children: [
-                                          Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                             children: [
-                                              Text(
-                                                'Passenger Verification',
-                                                style: UberTypography.caption,
+                                              Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Passenger Verification',
+                                                    style: UberTypography.caption,
+                                                  ),
+                                                  Text(
+                                                    '${currentStop.passengerName} (${currentStop.seats} ${currentStop.seats == 1 ? 'Seat' : 'Seats'})',
+                                                    style: UberTypography.bodyMdStrong,
+                                                  ),
+                                                ],
                                               ),
-                                              Text(
-                                                '${currentStop!.passengerName} (${currentStop.seats} ${currentStop.seats == 1 ? 'Seat' : 'Seats'})',
-                                                style: UberTypography.bodyMdStrong,
+                                              MetricBadge(
+                                                label: 'Code',
+                                                value: currentStop.verificationCode,
+                                                variant: MetricBadgeVariant.dark,
+                                                compact: true,
                                               ),
                                             ],
                                           ),
-                                          MetricBadge(
-                                            label: 'Code',
-                                            value: currentStop.verificationCode,
-                                            variant: MetricBadgeVariant.dark,
-                                            compact: true,
+                                          if (currentStop.isPickup) ...[
+                                            const SizedBox(height: UberSpacing.sm),
+                                            OtpKeypadWidget(
+                                              enteredOtp: state.enteredOtp,
+                                              isVerified: state.isCurrentStopVerified,
+                                              isLocked: state.isStopLocked,
+                                              errorMessage: state.otpErrorMessage,
+                                              onDigitPressed: (digit) =>
+                                                  context.read<DriverCubit>().enterOtpDigit(digit),
+                                              onDeletePressed: () =>
+                                                  context.read<DriverCubit>().deleteOtpDigit(),
+                                              onClearPressed: () =>
+                                                  context.read<DriverCubit>().clearOtp(),
+                                              onBypassPressed: () =>
+                                                  context.read<DriverCubit>().bypassOtp(),
+                                              onManualOverride: () =>
+                                                  context.read<DriverCubit>().manualUnlockStop(),
+                                            ),
+                                          ],
+                                          const SizedBox(height: UberSpacing.md),
+                                          PillButton(
+                                            label: currentStop.isPickup
+                                                ? 'Confirm Passenger Boarded'
+                                                : 'Confirm Passenger Dropped Off',
+                                            size: PillButtonSize.large,
+                                            fullWidth: true,
+                                            variant: (currentStop.isDropoff || state.isCurrentStopVerified)
+                                                ? PillButtonVariant.primary
+                                                : PillButtonVariant.secondary,
+                                            icon: currentStop.isPickup
+                                                ? Icons.person_add_alt_1_rounded
+                                                : Icons.check_circle_rounded,
+                                            onPressed: (currentStop.isDropoff || state.isCurrentStopVerified)
+                                                ? () {
+                                                    context.read<DriverCubit>().confirmCurrentStop();
+                                                  }
+                                                : null,
                                           ),
                                         ],
-                                      ),
-                                      if (currentStop.isPickup) ...[
-                                        const SizedBox(height: UberSpacing.sm),
-                                        OtpKeypadWidget(
-                                          enteredOtp: state.enteredOtp,
-                                          isVerified: state.isCurrentStopVerified,
-                                          isLocked: state.isStopLocked,
-                                          errorMessage: state.otpErrorMessage,
-                                          onDigitPressed: (digit) =>
-                                              context.read<DriverCubit>().enterOtpDigit(digit),
-                                          onDeletePressed: () =>
-                                              context.read<DriverCubit>().deleteOtpDigit(),
-                                          onClearPressed: () =>
-                                              context.read<DriverCubit>().clearOtp(),
-                                          onBypassPressed: () =>
-                                              context.read<DriverCubit>().bypassOtp(),
-                                          onManualOverride: () =>
-                                              context.read<DriverCubit>().manualUnlockStop(),
+                                      )
+                                    : Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: UberSpacing.md),
+                                        child: Text(
+                                          'No active stops pending.',
+                                          style: UberTypography.bodySm,
+                                          textAlign: TextAlign.center,
                                         ),
-                                      ],
-                                      const SizedBox(height: UberSpacing.md),
-                                      PillButton(
-                                        label: currentStop.isPickup
-                                            ? 'Confirm Passenger Boarded'
-                                            : 'Confirm Passenger Dropped Off',
-                                        size: PillButtonSize.large,
-                                        fullWidth: true,
-                                        variant: (currentStop.isDropoff || state.isCurrentStopVerified)
-                                            ? PillButtonVariant.primary
-                                            : PillButtonVariant.secondary,
-                                        icon: currentStop.isPickup
-                                            ? Icons.person_add_alt_1_rounded
-                                            : Icons.check_circle_rounded,
-                                        onPressed: (currentStop.isDropoff || state.isCurrentStopVerified)
-                                            ? () {
-                                                context.read<DriverCubit>().confirmCurrentStop();
-                                              }
-                                            : null,
-                                      ),
-                                    ],
-                                  ),
+                                      )),
                           ),
 
                           const SizedBox(height: UberSpacing.md),

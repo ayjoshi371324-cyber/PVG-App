@@ -26,6 +26,38 @@ class _ShellViewState extends State<ShellView> {
       DualModeRidePoolRepository.instance.mode == RepositoryMode.liveBackend;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        final authCubit = context.read<AuthCubit>();
+        final authState = authCubit.state;
+        if (authState is Authenticated) {
+          _syncRoleFromAuth(authState.user.role);
+        }
+      } catch (_) {}
+    });
+  }
+
+  void _syncRoleFromAuth(UserRole role) {
+    AppRole targetRole;
+    switch (role) {
+      case UserRole.passenger:
+        targetRole = AppRole.passenger;
+        break;
+      case UserRole.driver:
+        targetRole = AppRole.driver;
+        break;
+      case UserRole.ops:
+        targetRole = AppRole.ops;
+        break;
+    }
+    if (context.read<RoleCubit>().state.currentRole != targetRole) {
+      context.read<RoleCubit>().selectRole(targetRole);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     AuthCubit? authCubit;
     try {
@@ -36,31 +68,18 @@ class _ShellViewState extends State<ShellView> {
 
     final authState = authCubit?.state;
 
-    return BlocBuilder<RoleCubit, RoleState>(
+    final content = BlocBuilder<RoleCubit, RoleState>(
       builder: (context, roleState) {
-        // If unauthenticated and not in inspector mode, show welcome screen
-        if (authState is Unauthenticated && !_inspectorMode) {
-          return const Scaffold(
-            backgroundColor: UberColors.canvas,
-            body: AuthWelcomeView(key: ValueKey('auth_welcome_view')),
-          );
-        }
-
-        // Determine effective role
-        AppRole effectiveRole = roleState.currentRole;
-        if (authState is Authenticated && !_inspectorMode) {
-          switch (authState.user.role) {
-            case UserRole.passenger:
-              effectiveRole = AppRole.passenger;
-              break;
-            case UserRole.driver:
-              effectiveRole = AppRole.driver;
-              break;
-            case UserRole.ops:
-              effectiveRole = AppRole.ops;
-              break;
+          // If unauthenticated and not in inspector mode, show welcome screen
+          if (authState is Unauthenticated && !_inspectorMode) {
+            return const Scaffold(
+              backgroundColor: UberColors.canvas,
+              body: AuthWelcomeView(key: ValueKey('auth_welcome_view')),
+            );
           }
-        }
+
+          // Effective role follows user role selection or inspector override
+          final effectiveRole = _inspectorMode ? AppRole.ops : roleState.currentRole;
 
         return Scaffold(
           backgroundColor: UberColors.canvas,
@@ -209,6 +228,24 @@ class _ShellViewState extends State<ShellView> {
                         setState(() => _inspectorMode = false);
                       }
                       context.read<RoleCubit>().selectRole(newRole);
+                      try {
+                        final cubit = context.read<AuthCubit>();
+                        if (cubit.state is Authenticated) {
+                          UserRole targetUserRole;
+                          switch (newRole) {
+                            case AppRole.passenger:
+                              targetUserRole = UserRole.passenger;
+                              break;
+                            case AppRole.driver:
+                              targetUserRole = UserRole.driver;
+                              break;
+                            case AppRole.ops:
+                              targetUserRole = UserRole.ops;
+                              break;
+                          }
+                          cubit.loginAsDemo(targetUserRole);
+                        }
+                      } catch (_) {}
                     },
                   ),
                 ),
@@ -277,6 +314,19 @@ class _ShellViewState extends State<ShellView> {
         );
       },
     );
+
+    if (authCubit != null) {
+      return BlocListener<AuthCubit, AuthState>(
+        listener: (context, state) {
+          if (state is Authenticated) {
+            _syncRoleFromAuth(state.user.role);
+          }
+        },
+        child: content,
+      );
+    }
+
+    return content;
   }
 
   Widget _buildRoleView(AppRole role) {

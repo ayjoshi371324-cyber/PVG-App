@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ridepool_app/blocs/auth/auth_cubit.dart';
+import 'package:ridepool_app/blocs/driver/driver_cubit.dart';
 import 'package:ridepool_app/blocs/role/role_cubit.dart';
 import 'package:ridepool_app/core/theme.dart';
+import 'package:ridepool_app/data/models/auth_models.dart';
 import 'package:ridepool_app/views/shell_view.dart';
 import 'package:ridepool_app/views/passenger/passenger_home_view.dart';
 import 'package:ridepool_app/views/driver/driver_home_view.dart';
@@ -111,6 +114,57 @@ void main() {
 
       expect(find.text('Offline Sim'), findsOneWidget);
       expect(DualModeRidePoolRepository.instance.mode, equals(RepositoryMode.offlineSimulation));
+    });
+
+    testWidgets('RoleSwitcher allows switching between Passenger, Driver, and Operations when AuthCubit is active', (tester) async {
+      final authCubit = AuthCubit()..loginAsDemo(UserRole.passenger);
+      final driverCubit = DriverCubit();
+      addTearDown(() {
+        authCubit.close();
+        driverCubit.close();
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: UberTheme.lightTheme,
+          home: MultiBlocProvider(
+            providers: [
+              BlocProvider<AuthCubit>.value(value: authCubit),
+              BlocProvider<RoleCubit>.value(value: roleCubit),
+              BlocProvider<DriverCubit>.value(value: driverCubit),
+            ],
+            child: const ShellView(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Initially Passenger
+      expect(find.byType(PassengerHomeView), findsOneWidget);
+      expect(find.byType(DriverHomeView), findsNothing);
+
+      // Tap Driver tab
+      await tester.tap(find.text('Driver'));
+      await tester.pumpAndSettle();
+
+      // Driver Dashboard is now rendered and fully working!
+      expect(find.byType(DriverHomeView), findsOneWidget);
+      expect(find.byType(PassengerHomeView), findsNothing);
+      expect(find.text('Next Stop: Pickup Aakash S.'), findsOneWidget);
+
+      // Tap Operations tab
+      await tester.tap(find.text('Operations'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(OpsHomeView), findsOneWidget);
+      expect(find.byType(DriverHomeView), findsNothing);
+
+      // Tap Passenger tab
+      await tester.tap(find.text('Passenger'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PassengerHomeView), findsOneWidget);
+      expect(find.byType(DriverHomeView), findsNothing);
     });
   });
 }
