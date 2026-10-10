@@ -10,7 +10,7 @@
 [![Flutter](https://img.shields.io/badge/Frontend-Flutter_3.x-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI_0.100+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 
-🎮 **Live Web Application:** [https://routemates.vercel.app](https://routemates.vercel.app) *(TODO: verify URL)*  
+🎮 **Live Web Application:** [https://pvg-app-backend.vercel.app/](https://pvg-app-backend.vercel.app/) *(TODO: verify URL)*  
 ⚡ **Interactive API Docs (Swagger):** [https://routemates-backend.onrender.com/docs](https://routemates-backend.onrender.com/docs) *(TODO: verify URL)*  
 🔄 **Real-Time Telemetry Stream:** `wss://routemates-backend.onrender.com/ws` *(TODO: verify URL)*  
 
