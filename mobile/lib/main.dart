@@ -29,7 +29,7 @@ class RidePoolApp extends StatelessWidget {
         BlocProvider<OpsCubit>(create: (_) => OpsCubit()),
       ],
       child: MaterialApp(
-        title: 'RidePool AI',
+        title: 'RouteMates',
         debugShowCheckedModeBanner: false,
         theme: UberTheme.lightTheme,
         home: const ShellView(),

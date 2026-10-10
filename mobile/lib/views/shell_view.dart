@@ -91,7 +91,7 @@ class _ShellViewState extends State<ShellView> {
             title: Row(
               children: [
                 Text(
-                  'RidePool',
+                  'RouteMates',
                   style: UberTypography.displaySm.copyWith(
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.5,

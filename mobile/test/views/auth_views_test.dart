@@ -41,7 +41,7 @@ void main() {
       await tester.pumpWidget(createAuthWrapper(const AuthWelcomeView()));
       await tester.pumpAndSettle();
 
-      expect(find.text('RidePool'), findsOneWidget);
+      expect(find.text('RouteMates'), findsOneWidget);
       expect(find.text('Algorithmic Carpooling for Pune'), findsOneWidget);
       expect(find.byKey(const Key('auth_passenger_signin_button')), findsOneWidget);
       expect(find.byKey(const Key('auth_driver_onboard_button')), findsOneWidget);

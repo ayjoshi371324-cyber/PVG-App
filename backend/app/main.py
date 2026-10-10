@@ -56,7 +56,7 @@ app.include_router(ops_router.router)
 def health_check():
     return {
         "status": "healthy",
-        "service": "RidePool AI Backend Bridge",
+        "service": "RouteMates Backend Bridge",
         "version": settings.VERSION,
         "demo_mode": settings.DEMO_MODE,
     }

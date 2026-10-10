@@ -96,7 +96,7 @@ class _LoginViewState extends State<LoginView> {
                   ),
                   const SizedBox(height: UberSpacing.xs),
                   Text(
-                    'Sign in to access your RidePool account',
+                    'Sign in to access your RouteMates account',
                     style: UberTypography.bodySm.copyWith(color: UberColors.body),
                   ),
                   const SizedBox(height: UberSpacing.xl),

@@ -91,7 +91,7 @@ class _DriverRegisterViewState extends State<DriverRegisterView> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Partner with RidePool AI',
+                    'Partner with RouteMates',
                     style: UberTypography.displaySm.copyWith(
                       fontWeight: FontWeight.w800,
                     ),

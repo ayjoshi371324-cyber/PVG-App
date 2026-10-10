@@ -47,7 +47,7 @@ class AuthWelcomeView extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'RidePool',
+                      'RouteMates',
                       style: UberTypography.displayLg.copyWith(
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.8,

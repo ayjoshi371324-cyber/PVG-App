@@ -1,6 +1,6 @@
 {
-    "name": "ridepool_app",
-    "short_name": "ridepool_app",
+    "name": "RouteMates",
+    "short_name": "RouteMates",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

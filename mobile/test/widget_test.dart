@@ -7,7 +7,7 @@ void main() {
     await tester.pumpWidget(const RidePoolApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('RidePool'), findsOneWidget);
+    expect(find.text('RouteMates'), findsOneWidget);
     expect(find.text('Passenger'), findsOneWidget);
     expect(find.text('Driver'), findsOneWidget);
     expect(find.text('Operations'), findsOneWidget);
