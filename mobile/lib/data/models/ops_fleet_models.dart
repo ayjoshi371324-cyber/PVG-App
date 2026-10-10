@@ -18,7 +18,12 @@ class FleetVehicle extends Equatable {
     this.maxCapacity = 4,
     this.batteryPercentage = 80,
     this.assignedRouteName,
-  });
+    int? onboardSeats,
+    int? reservedSeats,
+    int? heldSeats,
+  })  : onboardSeats = onboardSeats ?? currentOccupancy,
+        reservedSeats = reservedSeats ?? 0,
+        heldSeats = heldSeats ?? 0;
 
   final String id;
   final String name;
@@ -29,6 +34,13 @@ class FleetVehicle extends Equatable {
   final int maxCapacity;
   final int batteryPercentage;
   final String? assignedRouteName;
+
+  /// Cabin Seat Breakdown
+  final int onboardSeats;
+  final int reservedSeats;
+  final int heldSeats;
+
+  int get freeSeats => (maxCapacity - onboardSeats - reservedSeats - heldSeats).clamp(0, maxCapacity);
 
   bool get isIdle => status == FleetVehicleStatus.idle;
   bool get isPickingUp => status == FleetVehicleStatus.pickingUp;
@@ -55,6 +67,9 @@ class FleetVehicle extends Equatable {
     int? maxCapacity,
     int? batteryPercentage,
     String? assignedRouteName,
+    int? onboardSeats,
+    int? reservedSeats,
+    int? heldSeats,
   }) {
     return FleetVehicle(
       id: id ?? this.id,
@@ -66,6 +81,9 @@ class FleetVehicle extends Equatable {
       maxCapacity: maxCapacity ?? this.maxCapacity,
       batteryPercentage: batteryPercentage ?? this.batteryPercentage,
       assignedRouteName: assignedRouteName ?? this.assignedRouteName,
+      onboardSeats: onboardSeats ?? this.onboardSeats,
+      reservedSeats: reservedSeats ?? this.reservedSeats,
+      heldSeats: heldSeats ?? this.heldSeats,
     );
   }
 
@@ -80,6 +98,9 @@ class FleetVehicle extends Equatable {
         maxCapacity,
         batteryPercentage,
         assignedRouteName,
+        onboardSeats,
+        reservedSeats,
+        heldSeats,
       ];
 }
 
@@ -119,6 +140,13 @@ class BenchmarkMetrics extends Equatable {
     required this.detourGreedy,
     required this.fareSavingsPercentAlgorithmic,
     required this.fareSavingsPercentGreedy,
+    this.serviceRateAlgorithmic = 100.0,
+    this.serviceRateGreedy = 82.0,
+    this.p95DetourAlgorithmic = 12.5,
+    this.p95DetourGreedy = 29.5,
+    this.testedVehiclesCount = 6,
+    this.testedPassengersCount = 12,
+    this.seed,
   });
 
   final double vktAlgorithmic;
@@ -127,9 +155,19 @@ class BenchmarkMetrics extends Equatable {
   final double detourGreedy;
   final double fareSavingsPercentAlgorithmic;
   final double fareSavingsPercentGreedy;
+  final double serviceRateAlgorithmic;
+  final double serviceRateGreedy;
+  final double p95DetourAlgorithmic;
+  final double p95DetourGreedy;
+  final int testedVehiclesCount;
+  final int testedPassengersCount;
+  final int? seed;
 
   double get vktSavingsPercent =>
       vktGreedy > 0 ? (((vktGreedy - vktAlgorithmic) / vktGreedy) * 100) : 0.0;
+
+  double get vktSavingsKm =>
+      (vktGreedy - vktAlgorithmic > 0) ? (vktGreedy - vktAlgorithmic) : 0.0;
 
   BenchmarkMetrics copyWith({
     double? vktAlgorithmic,
@@ -138,6 +176,13 @@ class BenchmarkMetrics extends Equatable {
     double? detourGreedy,
     double? fareSavingsPercentAlgorithmic,
     double? fareSavingsPercentGreedy,
+    double? serviceRateAlgorithmic,
+    double? serviceRateGreedy,
+    double? p95DetourAlgorithmic,
+    double? p95DetourGreedy,
+    int? testedVehiclesCount,
+    int? testedPassengersCount,
+    int? seed,
   }) {
     return BenchmarkMetrics(
       vktAlgorithmic: vktAlgorithmic ?? this.vktAlgorithmic,
@@ -148,6 +193,16 @@ class BenchmarkMetrics extends Equatable {
           fareSavingsPercentAlgorithmic ?? this.fareSavingsPercentAlgorithmic,
       fareSavingsPercentGreedy:
           fareSavingsPercentGreedy ?? this.fareSavingsPercentGreedy,
+      serviceRateAlgorithmic:
+          serviceRateAlgorithmic ?? this.serviceRateAlgorithmic,
+      serviceRateGreedy: serviceRateGreedy ?? this.serviceRateGreedy,
+      p95DetourAlgorithmic:
+          p95DetourAlgorithmic ?? this.p95DetourAlgorithmic,
+      p95DetourGreedy: p95DetourGreedy ?? this.p95DetourGreedy,
+      testedVehiclesCount: testedVehiclesCount ?? this.testedVehiclesCount,
+      testedPassengersCount:
+          testedPassengersCount ?? this.testedPassengersCount,
+      seed: seed ?? this.seed,
     );
   }
 
@@ -159,6 +214,13 @@ class BenchmarkMetrics extends Equatable {
         detourGreedy,
         fareSavingsPercentAlgorithmic,
         fareSavingsPercentGreedy,
+        serviceRateAlgorithmic,
+        serviceRateGreedy,
+        p95DetourAlgorithmic,
+        p95DetourGreedy,
+        testedVehiclesCount,
+        testedPassengersCount,
+        seed,
       ];
 }
 

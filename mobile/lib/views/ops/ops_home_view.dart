@@ -6,6 +6,7 @@ import 'package:ridepool_app/blocs/ops/ops_state.dart';
 import 'package:ridepool_app/core/theme.dart';
 import 'package:ridepool_app/data/models/ops_fleet_models.dart';
 import 'package:ridepool_app/widgets/bottom_drawer_sheet.dart';
+import 'package:ridepool_app/widgets/cabin_occupancy_bar.dart';
 import 'package:ridepool_app/widgets/comparative_benchmark_card.dart';
 import 'package:ridepool_app/widgets/detour_guarantee_inspector.dart';
 import 'package:ridepool_app/widgets/metric_badge.dart';
@@ -232,55 +233,157 @@ class _OpsHomeContent extends StatelessWidget {
                             UberCard(
                               variant: UberCardVariant.elevated,
                               padding: const EdgeInsets.all(UberSpacing.md),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(
-                                        '${state.selectedVehicle!.id} • ${state.selectedVehicle!.name}',
-                                        style: UberTypography.bodySmStrong,
-                                      ),
-                                      Text(
-                                        '${state.selectedVehicle!.licensePlate} • ${state.selectedVehicle!.currentLocation.name}',
-                                        style: UberTypography.caption,
-                                      ),
-                                      if (state.selectedVehicle!.assignedRouteName != null)
-                                        Text(
-                                          state.selectedVehicle!.assignedRouteName!,
-                                          style: UberTypography.caption.copyWith(
-                                            color: UberColors.accentGreen,
-                                            fontWeight: FontWeight.w600,
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '${state.selectedVehicle!.id} • ${state.selectedVehicle!.name}',
+                                            style: UberTypography.bodySmStrong,
                                           ),
-                                        ),
+                                          Text(
+                                            '${state.selectedVehicle!.licensePlate} • ${state.selectedVehicle!.currentLocation.name}',
+                                            style: UberTypography.caption,
+                                          ),
+                                          if (state.selectedVehicle!.assignedRouteName != null)
+                                            Text(
+                                              state.selectedVehicle!.assignedRouteName!,
+                                              style: UberTypography.caption.copyWith(
+                                                color: UberColors.accentGreen,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        children: [
+                                          MetricBadge(
+                                            label: '',
+                                            value: state.selectedVehicle!.statusLabel,
+                                            variant: state.selectedVehicle!.isInPool
+                                                ? MetricBadgeVariant.dark
+                                                : (state.selectedVehicle!.isPickingUp
+                                                    ? MetricBadgeVariant.warning
+                                                    : MetricBadgeVariant.neutral),
+                                            compact: true,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${state.selectedVehicle!.currentOccupancy}/${state.selectedVehicle!.maxCapacity} Seats',
+                                            style: UberTypography.caption,
+                                          ),
+                                        ],
+                                      ),
                                     ],
                                   ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      MetricBadge(
-                                        label: '',
-                                        value: state.selectedVehicle!.statusLabel,
-                                        variant: state.selectedVehicle!.isInPool
-                                            ? MetricBadgeVariant.dark
-                                            : (state.selectedVehicle!.isPickingUp
-                                                ? MetricBadgeVariant.warning
-                                                : MetricBadgeVariant.neutral),
-                                        compact: true,
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${state.selectedVehicle!.currentOccupancy}/${state.selectedVehicle!.maxCapacity} Seats',
-                                        style: UberTypography.caption,
-                                      ),
-                                    ],
+                                  const SizedBox(height: UberSpacing.sm),
+                                  CabinOccupancyBar(
+                                    maxCapacity: state.selectedVehicle!.maxCapacity,
+                                    onboardSeats: state.selectedVehicle!.onboardSeats,
+                                    reservedSeats: state.selectedVehicle!.reservedSeats,
+                                    heldSeats: state.selectedVehicle!.heldSeats,
                                   ),
                                 ],
                               ),
                             ),
                             const SizedBox(height: UberSpacing.md),
                           ],
+
+                          // Active Fleet Cabin Occupancy Overview
+                          UberCard(
+                            variant: UberCardVariant.standard,
+                            padding: const EdgeInsets.all(UberSpacing.md),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.airline_seat_recline_normal_rounded,
+                                          size: 16,
+                                          color: UberColors.ink,
+                                        ),
+                                        const SizedBox(width: UberSpacing.xs),
+                                        Text(
+                                          'Fleet Cabin Occupancy',
+                                          style: UberTypography.bodySmStrong,
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      '${state.activeFleetCount} active',
+                                      style: UberTypography.caption.copyWith(
+                                        color: UberColors.body,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: UberSpacing.sm),
+                                ...state.vehicles.map((v) {
+                                  final isSelected = v.id == state.selectedVehicleId;
+                                  return InkWell(
+                                    key: Key('fleet_vehicle_${v.id}'),
+                                    onTap: () => context.read<OpsCubit>().selectVehicle(v.id),
+                                    borderRadius: UberRadii.md,
+                                    child: Container(
+                                      margin: const EdgeInsets.only(bottom: UberSpacing.xs),
+                                      padding: const EdgeInsets.all(UberSpacing.xs),
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? UberColors.canvasSoft : Colors.transparent,
+                                        borderRadius: UberRadii.md,
+                                        border: isSelected ? Border.all(color: UberColors.ink) : null,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                '${v.id} (${v.name})',
+                                                style: UberTypography.caption.copyWith(
+                                                  fontWeight: FontWeight.w700,
+                                                  color: UberColors.ink,
+                                                ),
+                                              ),
+                                              Text(
+                                                v.statusLabel,
+                                                style: UberTypography.caption.copyWith(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: v.isInPool
+                                                      ? UberColors.accentGreen
+                                                      : (v.isPickingUp ? UberColors.accentOrange : UberColors.body),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          CabinOccupancyBar(
+                                            maxCapacity: v.maxCapacity,
+                                            onboardSeats: v.onboardSeats,
+                                            reservedSeats: v.reservedSeats,
+                                            heldSeats: v.heldSeats,
+                                            height: 6.0,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: UberSpacing.md),
 
                           // Comparative Benchmarks Card
                           ComparativeBenchmarkCard(

@@ -117,12 +117,54 @@ class ComparativeBenchmarkCard extends StatelessWidget {
           ),
           const Divider(height: UberSpacing.md),
           _buildComparisonRow(
+            title: 'p95 Detour',
+            leftValue: '${benchmark.p95DetourAlgorithmic.toStringAsFixed(1)}%',
+            rightValue: '${benchmark.p95DetourGreedy.toStringAsFixed(1)}%',
+            leftPositive: true,
+            leftAnnotation: '<= 15%',
+          ),
+          const Divider(height: UberSpacing.md),
+          _buildComparisonRow(
+            title: 'Service Rate',
+            leftValue: '${benchmark.serviceRateAlgorithmic.toStringAsFixed(1)}%',
+            rightValue: '${benchmark.serviceRateGreedy.toStringAsFixed(1)}%',
+            leftPositive: true,
+          ),
+          const Divider(height: UberSpacing.md),
+          _buildComparisonRow(
             title: 'Fare Savings',
             leftValue:
                 '${benchmark.fareSavingsPercentAlgorithmic.toStringAsFixed(1)}%',
             rightValue:
                 '${benchmark.fareSavingsPercentGreedy.toStringAsFixed(1)}%',
             leftPositive: true,
+          ),
+          const SizedBox(height: UberSpacing.sm),
+          Container(
+            padding: const EdgeInsets.all(UberSpacing.xs),
+            decoration: BoxDecoration(
+              color: UberColors.canvasSofter,
+              borderRadius: UberRadii.md,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.eco_rounded,
+                  size: 13,
+                  color: UberColors.accentGreen,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${benchmark.vktSavingsKm.toStringAsFixed(1)} km saved • Tested on ${benchmark.testedVehiclesCount} vehicles & ${benchmark.testedPassengersCount} passengers',
+                  style: UberTypography.caption.copyWith(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: UberColors.body,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

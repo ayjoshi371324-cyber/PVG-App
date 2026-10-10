@@ -1,11 +1,17 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:ridepool_app/blocs/ops/ops_state.dart';
+import 'package:ridepool_app/core/engine/benchmark_simulator.dart';
 import 'package:ridepool_app/core/route_estimator.dart';
 import 'package:ridepool_app/data/models/ops_fleet_models.dart';
 
 class OpsCubit extends Cubit<OpsState> {
-  OpsCubit([OpsState? initialState])
-      : super(initialState ?? _buildInitialState());
+  OpsCubit([
+    OpsState? initialState,
+    BenchmarkSimulator? simulator,
+  ])  : _simulator = simulator ?? const BenchmarkSimulator(),
+        super(initialState ?? _buildInitialState());
+
+  final BenchmarkSimulator _simulator;
 
   static OpsState _buildInitialState() {
     final vehicles = [
@@ -18,6 +24,9 @@ class OpsCubit extends Cubit<OpsState> {
         currentOccupancy: 0,
         maxCapacity: 4,
         batteryPercentage: 88,
+        onboardSeats: 0,
+        reservedSeats: 0,
+        heldSeats: 0,
       ),
       const FleetVehicle(
         id: 'EV-02',
@@ -29,6 +38,9 @@ class OpsCubit extends Cubit<OpsState> {
         maxCapacity: 4,
         batteryPercentage: 79,
         assignedRouteName: 'Kothrud-Hinjawadi Corridor',
+        onboardSeats: 1,
+        reservedSeats: 1,
+        heldSeats: 0,
       ),
       const FleetVehicle(
         id: 'EV-03',
@@ -40,6 +52,9 @@ class OpsCubit extends Cubit<OpsState> {
         maxCapacity: 4,
         batteryPercentage: 65,
         assignedRouteName: 'ShivajiNagar-Hinjawadi Express',
+        onboardSeats: 2,
+        reservedSeats: 1,
+        heldSeats: 0,
       ),
       const FleetVehicle(
         id: 'EV-04',
@@ -51,6 +66,9 @@ class OpsCubit extends Cubit<OpsState> {
         maxCapacity: 4,
         batteryPercentage: 84,
         assignedRouteName: 'Central-West IT Pool',
+        onboardSeats: 2,
+        reservedSeats: 0,
+        heldSeats: 1,
       ),
       const FleetVehicle(
         id: 'EV-05',
@@ -62,6 +80,9 @@ class OpsCubit extends Cubit<OpsState> {
         maxCapacity: 4,
         batteryPercentage: 92,
         assignedRouteName: 'East Corridor Shuttle',
+        onboardSeats: 1,
+        reservedSeats: 0,
+        heldSeats: 1,
       ),
       const FleetVehicle(
         id: 'EV-06',
@@ -72,6 +93,9 @@ class OpsCubit extends Cubit<OpsState> {
         currentOccupancy: 0,
         maxCapacity: 4,
         batteryPercentage: 81,
+        onboardSeats: 0,
+        reservedSeats: 0,
+        heldSeats: 0,
       ),
     ];
 
@@ -210,6 +234,9 @@ class OpsCubit extends Cubit<OpsState> {
         return v.copyWith(
           status: FleetVehicleStatus.pickingUp,
           currentOccupancy: 2,
+          onboardSeats: 1,
+          reservedSeats: 1,
+          heldSeats: 0,
           assignedRouteName: 'Dynamic Pooled Dispatch',
         );
       }
@@ -217,14 +244,41 @@ class OpsCubit extends Cubit<OpsState> {
     }).toList();
 
     final nextBatchNum = state.totalCompletedBatches + 1;
-    final addedKm = requestsToProcess > 0 ? requestsToProcess * 4.2 : 5.0;
-    final addedGreedyKm = requestsToProcess > 0 ? requestsToProcess * 8.4 : 9.5;
+    final simRequests = state.pendingDemand.isNotEmpty
+        ? state.pendingDemand
+        : [
+            SyntheticDemandRequest(
+              id: 'req-batch-$nextBatchNum',
+              passengerName: 'Synthetic Rider',
+              pickup: PuneLandmarks.kothrud,
+              dropoff: PuneLandmarks.hinjawadiPhase1,
+              partySize: 1,
+              requestedAt: DateTime.now(),
+            ),
+          ];
+
+    final simResult = _simulator.runBenchmark(
+      requests: simRequests,
+      vehicles: updatedVehicles,
+      seed: nextBatchNum,
+    );
 
     final updatedBenchmark = state.benchmark.copyWith(
       vktAlgorithmic: double.parse(
-          (state.benchmark.vktAlgorithmic + addedKm).toStringAsFixed(1)),
+          (state.benchmark.vktAlgorithmic + simResult.vktAlgorithmic).toStringAsFixed(1)),
       vktGreedy: double.parse(
-          (state.benchmark.vktGreedy + addedGreedyKm).toStringAsFixed(1)),
+          (state.benchmark.vktGreedy + simResult.vktGreedy).toStringAsFixed(1)),
+      detourAlgorithmic: simResult.detourAlgorithmic,
+      detourGreedy: simResult.detourGreedy,
+      fareSavingsPercentAlgorithmic: simResult.fareSavingsPercentAlgorithmic,
+      fareSavingsPercentGreedy: simResult.fareSavingsPercentGreedy,
+      serviceRateAlgorithmic: simResult.serviceRateAlgorithmic,
+      serviceRateGreedy: simResult.serviceRateGreedy,
+      p95DetourAlgorithmic: simResult.p95DetourAlgorithmic,
+      p95DetourGreedy: simResult.p95DetourGreedy,
+      testedVehiclesCount: updatedVehicles.length,
+      testedPassengersCount: requestsToProcess,
+      seed: nextBatchNum,
     );
 
     emit(state.copyWith(

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:ridepool_app/blocs/auth/auth_cubit.dart';
 import 'package:ridepool_app/blocs/driver/driver_cubit.dart';
 import 'package:ridepool_app/blocs/ops/ops_cubit.dart';
 import 'package:ridepool_app/blocs/passenger/passenger_cubit.dart';
 import 'package:ridepool_app/blocs/role/role_cubit.dart';
 import 'package:ridepool_app/core/theme.dart';
+import 'package:ridepool_app/data/models/auth_models.dart';
 import 'package:ridepool_app/views/shell_view.dart';
 
 void main() {
@@ -18,6 +20,9 @@ class RidePoolApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
+        BlocProvider<AuthCubit>(
+          create: (_) => AuthCubit()..loginAsDemo(UserRole.passenger),
+        ),
         BlocProvider<RoleCubit>(create: (_) => RoleCubit()),
         BlocProvider<PassengerCubit>(create: (_) => PassengerCubit()),
         BlocProvider<DriverCubit>(create: (_) => DriverCubit()),
