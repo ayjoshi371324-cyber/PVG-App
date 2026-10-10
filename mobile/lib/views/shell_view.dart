@@ -159,11 +159,15 @@ class _ShellViewState extends State<ShellView> {
                             : RepositoryMode.offlineSimulation,
                       );
                     });
+                    final liveRepo = DualModeRidePoolRepository.instance.liveRepository;
+                    final activeUrl = (liveRepo is LiveBackendRepository)
+                        ? liveRepo.baseUrl
+                        : 'Live Cloud Server';
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
                           _isLiveBackend
-                              ? 'Connected to Live FastAPI Backend (http://127.0.0.1:8000)'
+                              ? 'Connected to Live Backend ($activeUrl)'
                               : 'Switched to Offline Simulation Mode',
                         ),
                         duration: const Duration(seconds: 2),

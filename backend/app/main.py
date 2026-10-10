@@ -35,7 +35,7 @@ app = FastAPI(
 # CORS middleware for Flutter web/desktop/mobile access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=r".*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

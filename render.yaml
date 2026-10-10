@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: routemates-backend
+    runtime: python
+    rootDir: backend
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DEMO_MODE
+        value: "true"
+      - key: DATABASE_PATH
+        value: "ridepool.db"
+      - key: JWT_SECRET
+        generateValue: true

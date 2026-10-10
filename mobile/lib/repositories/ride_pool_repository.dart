@@ -223,10 +223,30 @@ class OfflineSimulationRepository implements RidePoolRepository {
 
 class LiveBackendRepository implements RidePoolRepository {
   LiveBackendRepository({
-    this.baseUrl = 'http://localhost:8000',
-    this.wsUrl = 'ws://localhost:8000/ws',
+    String? baseUrl,
+    String? wsUrl,
     http.Client? client,
-  }) : _client = client ?? http.Client();
+  })  : baseUrl = baseUrl ?? resolveDefaultBaseUrl(),
+        wsUrl = wsUrl ?? resolveDefaultWsUrl(baseUrl),
+        _client = client ?? http.Client();
+
+  static String resolveDefaultBaseUrl() {
+    const fromEnv = String.fromEnvironment('BACKEND_URL');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    return 'http://127.0.0.1:8000';
+  }
+
+  static String resolveDefaultWsUrl([String? base]) {
+    const fromEnv = String.fromEnvironment('WS_URL');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    final resolvedBase = base ?? resolveDefaultBaseUrl();
+    if (resolvedBase.startsWith('https://')) {
+      return '${resolvedBase.replaceFirst('https://', 'wss://')}/ws';
+    } else if (resolvedBase.startsWith('http://')) {
+      return '${resolvedBase.replaceFirst('http://', 'ws://')}/ws';
+    }
+    return 'ws://127.0.0.1:8000/ws';
+  }
 
   final String baseUrl;
   final String wsUrl;
@@ -430,14 +450,27 @@ class DualModeRidePoolRepository implements RidePoolRepository {
         _currentMode = initialMode;
 
   final RidePoolRepository _simulated;
-  final RidePoolRepository _live;
+  RidePoolRepository _live;
   RepositoryMode _currentMode;
 
   RidePoolRepository get _activeRepo =>
       _currentMode == RepositoryMode.offlineSimulation ? _simulated : _live;
 
+  RidePoolRepository get liveRepository => _live;
+
   void setMode(RepositoryMode newMode) {
     _currentMode = newMode;
+  }
+
+  void updateLiveBackendUrl(String newUrl) {
+    var clean = newUrl.trim();
+    if (clean.endsWith('/')) {
+      clean = clean.substring(0, clean.length - 1);
+    }
+    final ws = clean.startsWith('https://')
+        ? '${clean.replaceFirst('https://', 'wss://')}/ws'
+        : '${clean.replaceFirst('http://', 'ws://')}/ws';
+    _live = LiveBackendRepository(baseUrl: clean, wsUrl: ws);
   }
 
   @override
